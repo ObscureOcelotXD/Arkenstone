@@ -26,7 +26,7 @@ describe("AssetReceiver Contract", function () {
     expect(balance).to.equal(ethers.parseEther("1.0"));
   });
 
-  it("Should receive ERC-20 tokens successfully", async function () {
+  it("Should receive ERC-20 tokens successfully using receiveTokens", async function () {
     // Deploy a MockERC20 token
     const Token = await ethers.getContractFactory("MockERC20");
     // Deploy with an initial supply of 1000 tokens (assuming 18 decimals)
@@ -48,7 +48,7 @@ describe("AssetReceiver Contract", function () {
     expect(contractTokenBalance).to.equal(tokenAmount);
   });
 
-  it("Should return correct asset summary", async function () {
+  it("Should return correct asset summary for Ether and a single token", async function () {
     // Send 1 ETH to the AssetReceiver
     const ethTx = await owner.sendTransaction({
       to: await assetReceiver.getAddress(),
@@ -70,5 +70,47 @@ describe("AssetReceiver Contract", function () {
     const [etherBalance, tokenBalance] = await assetReceiver.getAssetSummary(await token.getAddress());
     expect(etherBalance).to.equal(ethers.parseEther("1.0"));
     expect(tokenBalance).to.equal(tokenAmount);
+  });
+
+  it("Should deposit multiple tokens and Ether via depositAssets", async function () {
+    // Deploy two tokens dynamically and deposit both along with Ether
+    const Token = await ethers.getContractFactory("MockERC20");
+    const initialSupply = ethers.parseUnits("1000", 18);
+
+    // Deploy token1 (e.g., MTK)
+    const token1 = await Token.deploy("MockToken", "MTK", initialSupply);
+    await token1.waitForDeployment();
+    const token1Address = await token1.getAddress();
+    // Deploy token2 (e.g., QTUM)
+    const token2 = await Token.deploy("QTUM Token", "QTUM", initialSupply);
+    await token2.waitForDeployment();
+    const token2Address = await token2.getAddress();
+
+    // Define deposit amounts for each token
+    const token1Amount = ethers.parseUnits("100", 18);
+    const token2Amount = ethers.parseUnits("50", 18);
+
+    // Approve assetReceiver to spend tokens for both tokens
+    await token1.approve(await assetReceiver.getAddress(), token1Amount);
+    await token2.approve(await assetReceiver.getAddress(), token2Amount);
+
+    // Call depositAssets with both tokens and send 1 ETH along
+    const depositTx = await assetReceiver.depositAssets(
+      [token1Address, token2Address],
+      [token1Amount, token2Amount],
+      { value: ethers.parseEther("1.0") }
+    );
+    await depositTx.wait();
+
+    // Check Ether balance of the contract
+    const etherBalance = await assetReceiver.getEtherBalance();
+    expect(etherBalance).to.equal(ethers.parseEther("1.0"));
+
+    // Check token balances individually
+    const token1Balance = await assetReceiver.tokenBalance(token1Address);
+    expect(token1Balance).to.equal(token1Amount);
+
+    const token2Balance = await assetReceiver.tokenBalance(token2Address);
+    expect(token2Balance).to.equal(token2Amount);
   });
 });
