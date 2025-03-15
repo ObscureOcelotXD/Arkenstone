@@ -30,20 +30,21 @@ describe("AssetWithdrawler Contract", function () {
     await assetReceiver.setWithdrawler(await assetWithdrawler.getAddress());
   });
 
-  it("Should withdraw Ether via AssetWithdrawler", async function () {
+  it("Should withdraw 1 ETH via AssetWithdrawler", async function () {
     // Record recipient (addr1) balance before withdrawal.
     const balanceBefore = await ethers.provider.getBalance(addr1.address);
-
-    // Call withdrawAllEther on AssetWithdrawler.
-    const withdrawTx = await assetWithdrawler.withdrawAllEther();
+  
+    // Withdraw 1 ETH using the new withdrawal function.
+    const withdrawTx = await assetWithdrawler.withdrawEther(ethers.parseEther("1.0"));
     await withdrawTx.wait();
-
-    // AssetReceiver's balance should be 0 after withdrawal.
+  
+    // AssetReceiver's balance should be 0 after the withdrawal.
     const receiverEth = await assetReceiver.getEtherBalance();
     expect(receiverEth).to.equal(0);
-
+  
     // addr1's balance should have increased (minus gas fees).
     const balanceAfter = await ethers.provider.getBalance(addr1.address);
     expect(balanceAfter).to.be.gt(balanceBefore);
   });
+  
 });
