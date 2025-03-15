@@ -48,7 +48,7 @@ describe("AssetWithdrawler Contract", function () {
   });
   
   it("Should gracefully withdraw maximum available Ether if requested amount exceeds balance", async function () {
-    // Deposit 1 ETH.
+    // Deposit an additional 1 ETH.
     await owner.sendTransaction({
       to: await assetReceiver.getAddress(),
       value: ethers.parseEther("1.0"),
@@ -57,7 +57,7 @@ describe("AssetWithdrawler Contract", function () {
     // Record recipient (addr1) balance before withdrawal.
     const balanceBefore = await ethers.provider.getBalance(addr1.address);
     
-    // Try to withdraw 2 ETH, but only 1 ETH is available.
+    // Try to withdraw 2 ETH, but only 1 ETH is available (since 1 ETH is already withdrawn).
     const withdrawTx = await assetWithdrawler.withdrawEther(ethers.parseEther("2.0"));
     await withdrawTx.wait();
   
@@ -65,10 +65,30 @@ describe("AssetWithdrawler Contract", function () {
     const receiverBalance = await assetReceiver.getEtherBalance();
     expect(receiverBalance).to.equal(0);
     
-    // Recipient's balance should have increased (minus gas fees).
+    // Recipient's balance should have increased.
     const balanceAfter = await ethers.provider.getBalance(addr1.address);
     expect(balanceAfter).to.be.gt(balanceBefore);
   });
-  
 
+  it("Should withdraw tokens via AssetWithdrawler", async function () {
+    // Deploy a MockERC20 token and deposit tokens into AssetReceiver.
+    const Token = await ethers.getContractFactory("MockERC20");
+    const initialSupply = ethers.parseUnits("1000", 18);
+    const token = await Token.deploy("MockToken", "MTK", initialSupply);
+    await token.waitForDeployment();
+    
+    // Deposit 200 tokens.
+    const depositAmount = ethers.parseUnits("200", 18);
+    await token.approve(await assetReceiver.getAddress(), depositAmount);
+    await assetReceiver.receiveTokens(await token.getAddress(), depositAmount);
+    
+    // Withdraw 150 tokens using AssetWithdrawler.
+    const withdrawAmount = ethers.parseUnits("150", 18);
+    const withdrawTx = await assetWithdrawler.withdrawToken(await token.getAddress(), withdrawAmount);
+    await withdrawTx.wait();
+    
+    // After withdrawal, AssetReceiver should have 50 tokens left.
+    const remaining = await token.balanceOf(await assetReceiver.getAddress());
+    expect(remaining).to.equal(ethers.parseUnits("50", 18));
+  });
 });

@@ -36,7 +36,7 @@ contract AssetReceiver is ReentrancyGuard {
         emit EtherReceived(msg.sender, msg.value);
     }
 
-    // Receive a single ERC-20 token deposit.
+    // Deposit a single ERC‑20 token.
     function receiveTokens(address tokenAddress, uint256 amount) external nonReentrant {
         IERC20 token = IERC20(tokenAddress);
         require(token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
@@ -59,23 +59,23 @@ contract AssetReceiver is ReentrancyGuard {
         }
     }
 
-    // Returns the Ether balance held by the contract.
+    // Get the contract's Ether balance.
     function getEtherBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
-    // Returns the token balance for a given ERC-20 token.
+    // Get the contract's balance for a specific token.
     function tokenBalance(address tokenAddress) public view returns (uint256) {
         return IERC20(tokenAddress).balanceOf(address(this));
     }
 
-    // Returns a summary: Ether balance and the balance for a given token.
+    // Get a summary: Ether balance and token balance for a specific token.
     function getAssetSummary(address tokenAddress) public view returns (uint256 etherBalance, uint256 tokenBal) {
         etherBalance = address(this).balance;
         tokenBal = IERC20(tokenAddress).balanceOf(address(this));
     }
 
-    // Returns balances for multiple token addresses.
+    // Get multiple token balances.
     function getMultipleTokenBalances(address[] calldata tokenAddresses) external view returns (uint256[] memory balances) {
         balances = new uint256[](tokenAddresses.length);
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
@@ -83,14 +83,23 @@ contract AssetReceiver is ReentrancyGuard {
         }
     }
     
-    // Updated withdrawEther function: if the requested amount exceeds available balance,
-    // withdraw the maximum available amount.
+    // Withdraw a specified amount of Ether. If requested exceeds balance, withdraw the full balance.
     function withdrawEther(address payable recipient, uint256 amount) external onlyWithdrawler nonReentrant {
         uint256 currentBalance = address(this).balance;
-        // If requested amount is more than available, withdraw the full balance.
         uint256 amountToWithdraw = amount > currentBalance ? currentBalance : amount;
         require(amountToWithdraw > 0, "No Ether to withdraw");
         (bool success, ) = recipient.call{value: amountToWithdraw}("");
         require(success, "Ether withdrawal failed");
+    }
+    
+    // New function: Withdraw a specified amount of an ERC‑20 token.
+    // If requested exceeds balance, withdraw the full available balance.
+    function withdrawToken(address tokenAddress, address recipient, uint256 amount) external onlyWithdrawler nonReentrant {
+        IERC20 token = IERC20(tokenAddress);
+        uint256 currentBalance = token.balanceOf(address(this));
+        uint256 amountToWithdraw = amount > currentBalance ? currentBalance : amount;
+        require(amountToWithdraw > 0, "No tokens to withdraw");
+        bool success = token.transfer(recipient, amountToWithdraw);
+        require(success, "Token withdrawal failed");
     }
 }
