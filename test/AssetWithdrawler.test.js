@@ -47,4 +47,28 @@ describe("AssetWithdrawler Contract", function () {
     expect(balanceAfter).to.be.gt(balanceBefore);
   });
   
+  it("Should gracefully withdraw maximum available Ether if requested amount exceeds balance", async function () {
+    // Deposit 1 ETH.
+    await owner.sendTransaction({
+      to: await assetReceiver.getAddress(),
+      value: ethers.parseEther("1.0"),
+    });
+  
+    // Record recipient (addr1) balance before withdrawal.
+    const balanceBefore = await ethers.provider.getBalance(addr1.address);
+    
+    // Try to withdraw 2 ETH, but only 1 ETH is available.
+    const withdrawTx = await assetWithdrawler.withdrawEther(ethers.parseEther("2.0"));
+    await withdrawTx.wait();
+  
+    // AssetReceiver's balance should be 0 after withdrawal.
+    const receiverBalance = await assetReceiver.getEtherBalance();
+    expect(receiverBalance).to.equal(0);
+    
+    // Recipient's balance should have increased (minus gas fees).
+    const balanceAfter = await ethers.provider.getBalance(addr1.address);
+    expect(balanceAfter).to.be.gt(balanceBefore);
+  });
+  
+
 });

@@ -21,25 +21,29 @@ contract AssetReceiver is ReentrancyGuard {
         _;
     }
 
-    // Update the withdrawler address.
+    // Allows the current withdrawler to update the withdrawler address.
     function setWithdrawler(address _withdrawler) external onlyWithdrawler {
         withdrawler = _withdrawler;
     }
 
+    // Receive Ether.
     receive() external payable {
         emit EtherReceived(msg.sender, msg.value);
     }
 
+    // Fallback function.
     fallback() external payable {
         emit EtherReceived(msg.sender, msg.value);
     }
 
+    // Receive a single ERC-20 token deposit.
     function receiveTokens(address tokenAddress, uint256 amount) external nonReentrant {
         IERC20 token = IERC20(tokenAddress);
         require(token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
         emit TokensReceived(tokenAddress, msg.sender, amount);
     }
 
+    // Deposit Ether and multiple tokens in one transaction.
     function depositAssets(address[] calldata tokenAddresses, uint256[] calldata amounts) external payable nonReentrant {
         require(tokenAddresses.length == amounts.length, "Arrays must be equal length");
 
@@ -55,19 +59,23 @@ contract AssetReceiver is ReentrancyGuard {
         }
     }
 
+    // Returns the Ether balance held by the contract.
     function getEtherBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
+    // Returns the token balance for a given ERC-20 token.
     function tokenBalance(address tokenAddress) public view returns (uint256) {
         return IERC20(tokenAddress).balanceOf(address(this));
     }
 
+    // Returns a summary: Ether balance and the balance for a given token.
     function getAssetSummary(address tokenAddress) public view returns (uint256 etherBalance, uint256 tokenBal) {
         etherBalance = address(this).balance;
         tokenBal = IERC20(tokenAddress).balanceOf(address(this));
     }
 
+    // Returns balances for multiple token addresses.
     function getMultipleTokenBalances(address[] calldata tokenAddresses) external view returns (uint256[] memory balances) {
         balances = new uint256[](tokenAddresses.length);
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
@@ -75,10 +83,14 @@ contract AssetReceiver is ReentrancyGuard {
         }
     }
     
-    // Updated withdrawal function: withdraws a specified amount of Ether.
+    // Updated withdrawEther function: if the requested amount exceeds available balance,
+    // withdraw the maximum available amount.
     function withdrawEther(address payable recipient, uint256 amount) external onlyWithdrawler nonReentrant {
-        require(amount <= address(this).balance, "Insufficient balance");
-        (bool success, ) = recipient.call{value: amount}("");
+        uint256 currentBalance = address(this).balance;
+        // If requested amount is more than available, withdraw the full balance.
+        uint256 amountToWithdraw = amount > currentBalance ? currentBalance : amount;
+        require(amountToWithdraw > 0, "No Ether to withdraw");
+        (bool success, ) = recipient.call{value: amountToWithdraw}("");
         require(success, "Ether withdrawal failed");
     }
 }

@@ -1,13 +1,11 @@
 // assetReceiverDeploy.js
 
 async function main() {
-    // 1. Read Ether deposit amount from environment variable; default to "1.0" if not provided.
+    // 1. Read Ether deposit amount from environment variable; default to "1.0".
     const etherAmountArg = process.env.ETH_AMOUNT || "1.0";
     const etherAmount = ethers.parseEther(etherAmountArg);
   
     // 2. Read tokens input from environment variable as JSON.
-    // Expected format example:
-    //   '[{"name": "MockToken", "symbol": "MTK", "amount": "152.20"}, {"name": "QTUM Token", "symbol": "QTUM", "amount": "75"}]'
     let tokensData = [];
     if (process.env.TOKENS) {
       try {
@@ -35,31 +33,26 @@ async function main() {
     if (tokensData.length > 0) {
       const MockERC20 = await ethers.getContractFactory("MockERC20");
       for (const tokenInfo of tokensData) {
-        // Deploy each token with a default initial supply of 1000 tokens.
         const initialSupply = ethers.parseUnits("1000", 18);
         const token = await MockERC20.deploy(tokenInfo.name, tokenInfo.symbol, initialSupply);
         await token.waitForDeployment();
         const tokenAddress = await token.getAddress();
         console.log(`${tokenInfo.symbol} token deployed to:`, tokenAddress);
   
-        // Parse the token amount (assumes 18 decimals).
         const amountBN = ethers.parseUnits(tokenInfo.amount, 18);
-  
-        // Approve the AssetReceiver contract to spend this token amount.
         const approveTx = await token.approve(assetReceiverAddress, amountBN);
         await approveTx.wait();
         console.log(`Approved ${tokenInfo.amount} ${tokenInfo.symbol} to AssetReceiver`);
   
-        // Add token details to the arrays.
         tokenAddresses.push(tokenAddress);
         tokenAmounts.push(amountBN);
       }
     }
   
-    // 6. Call depositAssets on AssetReceiver to send Ether and tokens.
+    // 6. Call depositAssets to send Ether and tokens.
     const depositTx = await assetReceiver.depositAssets(
-      tokenAddresses,   // Array of token addresses (can be empty)
-      tokenAmounts,     // Array of token amounts
+      tokenAddresses,
+      tokenAmounts,
       { value: etherAmount }
     );
     await depositTx.wait();
@@ -76,8 +69,7 @@ async function main() {
       }
     }
   
-    // 8. Deploy AssetWithdrawler to enable partial Ether withdrawals.
-    // For testing, we use the deployer's address as the recipient.
+    // 8. Deploy AssetWithdrawler (using deployer as recipient).
     const AssetWithdrawler = await ethers.getContractFactory("AssetWithdrawler");
     const assetWithdrawler = await AssetWithdrawler.deploy(assetReceiverAddress, deployer.address);
     await assetWithdrawler.waitForDeployment();
@@ -90,10 +82,10 @@ async function main() {
     console.log("AssetReceiver withdrawler set to:", assetWithdrawlerAddress);
   
     // 10. Optionally, withdraw a specified amount of Ether.
-    // Read the withdrawal amount from environment variable; default to "0" if not provided.
+    // Read withdrawal amount from environment variable; default to "0" if not provided.
     const withdrawAmountArg = process.env.WITHDRAW_AMOUNT || "0";
     const withdrawAmount = ethers.parseEther(withdrawAmountArg);
-    if (withdrawAmount > 0n) {  // Use bigint comparison (0n)
+    if (withdrawAmount > 0n) { // using bigint comparison
       const withdrawTx = await assetWithdrawler.withdrawEther(withdrawAmount);
       await withdrawTx.wait();
       console.log(`Withdrew ${withdrawAmountArg} ETH via AssetWithdrawler`);
