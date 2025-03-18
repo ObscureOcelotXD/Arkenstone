@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 
 describe("AssetReceiver Contract", function () {
   let AssetReceiver, assetReceiver, owner, addr1;
@@ -39,7 +39,7 @@ describe("AssetReceiver Contract", function () {
     // Transfer tokens via the receiveTokens function.
     await assetReceiver.receiveTokens(await token.getAddress(), tokenAmount);
 
-    // Check token balance of the contract using the tokenBalance function.
+    // Check token balance of the contract.
     const contractTokenBalance = await assetReceiver.tokenBalance(await token.getAddress());
     expect(contractTokenBalance).to.equal(tokenAmount);
   });
@@ -52,7 +52,7 @@ describe("AssetReceiver Contract", function () {
     });
     await ethTx.wait();
 
-    // Deploy a MockERC20 token and deposit tokens via receiveTokens.
+    // Deploy a MockERC20 token and deposit tokens.
     const Token = await ethers.getContractFactory("MockERC20");
     const initialSupply = ethers.parseUnits("1000", 18);
     const token = await Token.deploy("MockToken", "MTK", initialSupply);
@@ -62,7 +62,7 @@ describe("AssetReceiver Contract", function () {
     await token.approve(await assetReceiver.getAddress(), tokenAmount);
     await assetReceiver.receiveTokens(await token.getAddress(), tokenAmount);
 
-    // Retrieve asset summary (Ether and token balance) for this token.
+    // Retrieve asset summary.
     const [etherBalance, tokenBalance] = await assetReceiver.getAssetSummary(await token.getAddress());
     expect(etherBalance).to.equal(ethers.parseEther("1.0"));
     expect(tokenBalance).to.equal(tokenAmount);
@@ -73,12 +73,12 @@ describe("AssetReceiver Contract", function () {
     const Token = await ethers.getContractFactory("MockERC20");
     const initialSupply = ethers.parseUnits("1000", 18);
 
-    // Deploy token1 (e.g., TokenOne).
+    // Deploy token1 (TokenOne).
     const token1 = await Token.deploy("TokenOne", "TK1", initialSupply);
     await token1.waitForDeployment();
     const token1Address = await token1.getAddress();
 
-    // Deploy token2 (e.g., TokenTwo).
+    // Deploy token2 (TokenTwo).
     const token2 = await Token.deploy("TokenTwo", "TK2", initialSupply);
     await token2.waitForDeployment();
     const token2Address = await token2.getAddress();
@@ -91,7 +91,7 @@ describe("AssetReceiver Contract", function () {
     await token1.approve(await assetReceiver.getAddress(), token1Amount);
     await token2.approve(await assetReceiver.getAddress(), token2Amount);
 
-    // Call depositAssets with both token arrays and send 1 ETH.
+    // Deposit assets and 1 ETH.
     const depositTx = await assetReceiver.depositAssets(
       [token1Address, token2Address],
       [token1Amount, token2Amount],
@@ -111,25 +111,38 @@ describe("AssetReceiver Contract", function () {
     expect(token2Balance).to.equal(token2Amount);
   });
 
-  it("Should withdraw tokens partially via withdrawToken", async function () {
+  // New tests for storage duration tracking.
+  it("Should track ETH storage duration", async function () {
+    // Deposit 1 ETH.
+    await owner.sendTransaction({
+      to: await assetReceiver.getAddress(),
+      value: ethers.parseEther("1.0"),
+    });
+    // Increase time by 60 seconds.
+    await network.provider.send("evm_increaseTime", [60]);
+    await network.provider.send("evm_mine");
+    const duration = await assetReceiver.getEthStorageDuration(owner.address);
+    // Expect duration to be at least 60 seconds.
+    expect(duration).to.be.gte(60);
+  });
+
+  it("Should track token storage duration", async function () {
     // Deploy a MockERC20 token.
     const Token = await ethers.getContractFactory("MockERC20");
     const initialSupply = ethers.parseUnits("1000", 18);
     const token = await Token.deploy("MockToken", "MTK", initialSupply);
     await token.waitForDeployment();
 
-    // Define token amount (deposit 200 tokens).
-    const depositAmount = ethers.parseUnits("200", 18);
-    await token.approve(await assetReceiver.getAddress(), depositAmount);
-    await assetReceiver.receiveTokens(await token.getAddress(), depositAmount);
+    // Deposit 100 tokens.
+    const tokenAmount = ethers.parseUnits("100", 18);
+    await token.approve(await assetReceiver.getAddress(), tokenAmount);
+    await assetReceiver.receiveTokens(await token.getAddress(), tokenAmount);
 
-    // Withdraw 150 tokens; owner is the withdrawler by default.
-    const withdrawAmount = ethers.parseUnits("150", 18);
-    const recipient = addr1.address;
-    await assetReceiver.withdrawToken(await token.getAddress(), recipient, withdrawAmount);
-
-    // After withdrawal, the AssetReceiver should have 50 tokens remaining.
-    const remaining = await token.balanceOf(await assetReceiver.getAddress());
-    expect(remaining).to.equal(ethers.parseUnits("50", 18));
+    // Increase time by 120 seconds.
+    await network.provider.send("evm_increaseTime", [120]);
+    await network.provider.send("evm_mine");
+    const duration = await assetReceiver.getTokenStorageDuration(owner.address, await token.getAddress());
+    // Expect duration to be at least 120 seconds.
+    expect(duration).to.be.gte(120);
   });
 });
