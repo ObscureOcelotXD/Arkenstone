@@ -1,0 +1,158 @@
+import { useState, useEffect, useCallback } from "react";
+import { ethers } from "ethers";
+import Header from "./components/Header.jsx";
+import StatsRow from "./components/StatsRow.jsx";
+import DepositCard from "./components/DepositCard.jsx";
+import WithdrawCard from "./components/WithdrawCard.jsx";
+import RewardsCard from "./components/RewardsCard.jsx";
+import STAKING_ABI from "./contracts/ArkenstoneStaking.js";
+import TOKEN_ABI from "./contracts/ArkenstoneToken.js";
+import { STAKING_ADDRESS, TOKEN_ADDRESS, HARDHAT_CHAIN_ID } from "./contracts/addresses.js";
+import "./App.css";
+
+export default function App() {
+  const [account, setAccount]               = useState(null);
+  const [signer, setSigner]                 = useState(null);
+  const [stakingContract, setStakingContract] = useState(null);
+  const [tokenContract, setTokenContract]   = useState(null);
+  const [chainId, setChainId]               = useState(null);
+
+  const [stakedAmount, setStakedAmount]     = useState(0n);
+  const [pendingRewards, setPendingRewards] = useState(0n);
+  const [arknBalance, setArknBalance]       = useState(0n);
+  const [arknSupply, setArknSupply]         = useState(0n);
+
+  const [txStatus, setTxStatus]             = useState(null); // null | "pending" | "success" | "error"
+  const [loading, setLoading]               = useState(false);
+
+  const wrongNetwork = chainId !== null && chainId !== HARDHAT_CHAIN_ID;
+
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert("MetaMask not detected. Please install the MetaMask extension.");
+      return;
+    }
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const sign = await provider.getSigner();
+      const addr = await sign.getAddress();
+      const network = await provider.getNetwork();
+
+      const staking = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, sign);
+      const token   = new ethers.Contract(TOKEN_ADDRESS,   TOKEN_ABI,   sign);
+
+      setAccount(addr);
+      setSigner(sign);
+      setStakingContract(staking);
+      setTokenContract(token);
+      setChainId(Number(network.chainId));
+    } catch (err) {
+      console.error("Wallet connection failed:", err);
+    }
+  };
+
+  const refreshData = useCallback(async () => {
+    if (!stakingContract || !tokenContract || !account) return;
+    try {
+      const [staked, rewards] = await stakingContract.getStakeInfo(account);
+      const balance = await tokenContract.balanceOf(account);
+      const supply  = await tokenContract.totalSupply();
+      setStakedAmount(staked);
+      setPendingRewards(rewards);
+      setArknBalance(balance);
+      setArknSupply(supply);
+    } catch (err) {
+      console.error("Data refresh failed:", err);
+    }
+  }, [stakingContract, tokenContract, account]);
+
+  // Auto-refresh every 10 seconds while connected.
+  useEffect(() => {
+    if (!account) return;
+    refreshData();
+    const id = setInterval(refreshData, 10_000);
+    return () => clearInterval(id);
+  }, [account, refreshData]);
+
+  // Track account or network changes in MetaMask.
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const handleAccountsChanged = () => window.location.reload();
+    const handleChainChanged    = () => window.location.reload();
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+    window.ethereum.on("chainChanged", handleChainChanged);
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum.removeListener("chainChanged", handleChainChanged);
+    };
+  }, []);
+
+  const withTx = async (fn) => {
+    setLoading(true);
+    setTxStatus(null);
+    try {
+      const tx = await fn();
+      setTxStatus("pending");
+      await tx.wait();
+      setTxStatus("success");
+      await refreshData();
+      setTimeout(() => setTxStatus(null), 4000);
+    } catch (err) {
+      console.error(err);
+      setTxStatus("error");
+      setTimeout(() => setTxStatus(null), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeposit  = (amount) => withTx(() => stakingContract.deposit({ value: ethers.parseEther(amount) }));
+  const handleWithdraw = (amount) => withTx(() => stakingContract.withdraw(ethers.parseEther(amount)));
+  const handleClaim    = ()       => withTx(() => stakingContract.claimRewards());
+
+  return (
+    <div className="app">
+      <Header account={account} onConnect={connectWallet} />
+
+      {wrongNetwork && (
+        <div className="network-warning">
+          Wrong network detected. Please switch MetaMask to <strong>Hardhat Localhost</strong> (chain ID 31337).
+        </div>
+      )}
+
+      {!account ? (
+        <div className="connect-screen">
+          <div className="connect-screen__gem">◆</div>
+          <h1 className="connect-screen__title">Arkenstone</h1>
+          <p className="connect-screen__sub">Deposit ETH. Earn ARKN.</p>
+          <button className="btn btn--primary btn--lg" onClick={connectWallet}>
+            Connect Wallet
+          </button>
+        </div>
+      ) : (
+        <main className="main">
+          <StatsRow
+            stakedAmount={stakedAmount}
+            pendingRewards={pendingRewards}
+            arknBalance={arknBalance}
+            arknSupply={arknSupply}
+          />
+
+          <div className="cards-grid">
+            <DepositCard  onDeposit={handleDeposit}   loading={loading} />
+            <WithdrawCard onWithdraw={handleWithdraw} loading={loading} stakedAmount={stakedAmount} />
+            <RewardsCard  onClaim={handleClaim}        loading={loading} pendingRewards={pendingRewards} />
+          </div>
+
+          {txStatus && (
+            <div className={`toast toast--${txStatus}`}>
+              {txStatus === "pending" && "⏳ Transaction pending…"}
+              {txStatus === "success" && "✓ Transaction confirmed!"}
+              {txStatus === "error"   && "✕ Transaction failed — check the console."}
+            </div>
+          )}
+        </main>
+      )}
+    </div>
+  );
+}
