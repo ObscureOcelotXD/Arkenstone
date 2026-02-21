@@ -91,4 +91,29 @@ describe("AssetWithdrawler Contract", function () {
     const remaining = await token.balanceOf(await assetReceiver.getAddress());
     expect(remaining).to.equal(ethers.parseUnits("50", 18));
   });
+
+  it("Should revert withdrawEther when called by non-owner", async function () {
+    await expect(
+      assetWithdrawler.connect(addr2).withdrawEther(ethers.parseEther("0.5"))
+    ).to.be.revertedWithCustomError(assetWithdrawler, "NotOwner");
+  });
+
+  it("Should revert withdrawToken when called by non-owner", async function () {
+    const Token = await ethers.getContractFactory("MockERC20");
+    const token = await Token.deploy("T", "T", ethers.parseUnits("1000", 18));
+    await token.waitForDeployment();
+    await expect(
+      assetWithdrawler.connect(addr2).withdrawToken(await token.getAddress(), ethers.parseUnits("10", 18))
+    ).to.be.revertedWithCustomError(assetWithdrawler, "NotOwner");
+  });
+
+  it("Should revert deployment when assetReceiver or recipient is zero", async function () {
+    const AssetWithdrawler = await ethers.getContractFactory("AssetWithdrawler");
+    await expect(
+      AssetWithdrawler.deploy(ethers.ZeroAddress, addr1.address)
+    ).to.be.revertedWithCustomError(assetWithdrawler, "ZeroAddress");
+    await expect(
+      AssetWithdrawler.deploy(await assetReceiver.getAddress(), ethers.ZeroAddress)
+    ).to.be.revertedWithCustomError(assetWithdrawler, "ZeroAddress");
+  });
 });

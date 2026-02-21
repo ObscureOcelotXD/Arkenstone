@@ -6,7 +6,14 @@ function fmt(wei, decimals = 4) {
   return val < 0.0001 ? "< 0.0001" : val.toFixed(decimals);
 }
 
-export default function StatsRow({ stakedAmount, pendingRewards, arknBalance, arknSupply }) {
+export default function StatsRow({
+  stakedAmount,
+  pendingRewards,
+  arknBalance,
+  arknStakedAmount,
+  pendingArknRewards,
+  arknSupply,
+}) {
   return (
     <div className="stats-row">
       <div className="stat-card">
@@ -16,7 +23,7 @@ export default function StatsRow({ stakedAmount, pendingRewards, arknBalance, ar
       </div>
 
       <div className="stat-card">
-        <div className="stat-card__label">Pending Rewards</div>
+        <div className="stat-card__label">Pending (ETH stake)</div>
         <div className="stat-card__value stat-card__value--gold">{fmt(pendingRewards, 4)}</div>
         <div className="stat-card__unit">ARKN</div>
       </div>
@@ -24,13 +31,19 @@ export default function StatsRow({ stakedAmount, pendingRewards, arknBalance, ar
       <div className="stat-card">
         <div className="stat-card__label">ARKN Balance</div>
         <div className="stat-card__value stat-card__value--gold">{fmt(arknBalance, 4)}</div>
-        <div className="stat-card__unit">ARKN in wallet</div>
+        <div className="stat-card__unit">in wallet</div>
       </div>
 
       <div className="stat-card">
-        <div className="stat-card__label">Total ARKN Supply</div>
-        <div className="stat-card__value">{fmt(arknSupply, 2)}</div>
-        <div className="stat-card__unit">ARKN minted</div>
+        <div className="stat-card__label">ARKN Staked</div>
+        <div className="stat-card__value">{fmt(arknStakedAmount, 4)}</div>
+        <div className="stat-card__unit">ARKN</div>
+      </div>
+
+      <div className="stat-card">
+        <div className="stat-card__label">Pending (ARKN stake)</div>
+        <div className="stat-card__value stat-card__value--gold">{fmt(pendingArknRewards, 4)}</div>
+        <div className="stat-card__unit">ARKN</div>
       </div>
     </div>
   );

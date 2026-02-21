@@ -19,10 +19,19 @@ contract ArkenstoneStaking is ReentrancyGuard {
 
     mapping(address => StakeInfo) public stakes;
 
+    // ARKN staking: stake ARKN to earn ARKN. Rate tunable later.
+    uint256 public arknRewardRate = 1157407407407407;
+    mapping(address => StakeInfo) public arknStakes;
+
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
     event RewardRateUpdated(uint256 oldRate, uint256 newRate);
+
+    event ArknDeposited(address indexed user, uint256 amount);
+    event ArknWithdrawn(address indexed user, uint256 amount);
+    event ArknRewardsClaimed(address indexed user, uint256 amount);
+    event ArknRewardRateUpdated(uint256 oldRate, uint256 newRate);
 
     error ZeroAddress();
     error ZeroAmount();
@@ -115,6 +124,81 @@ contract ArkenstoneStaking is ReentrancyGuard {
     function setRewardRate(uint256 _rewardRate) external onlyOwner {
         emit RewardRateUpdated(rewardRate, _rewardRate);
         rewardRate = _rewardRate;
+    }
+
+    // ─── ARKN staking ─────────────────────────────────────────────────────
+    function depositArkn(uint256 amount) external nonReentrant {
+        if (amount == 0) revert ZeroAmount();
+
+        StakeInfo storage stake = arknStakes[msg.sender];
+        if (stake.amount > 0) {
+            stake.accumulatedRewards += _pendingArknRewards(stake);
+        }
+
+        stake.amount += amount;
+        stake.lastUpdateTime = block.timestamp;
+
+        require(arkn.transferFrom(msg.sender, address(this), amount), "ARKN transfer failed");
+        emit ArknDeposited(msg.sender, amount);
+    }
+
+    function withdrawArkn(uint256 amount) external nonReentrant {
+        if (amount == 0) revert ZeroAmount();
+        StakeInfo storage stake = arknStakes[msg.sender];
+        if (stake.amount < amount) revert InsufficientStake();
+
+        uint256 totalRewards = stake.accumulatedRewards + _pendingArknRewards(stake);
+
+        stake.amount -= amount;
+        stake.accumulatedRewards = 0;
+        stake.lastUpdateTime = stake.amount == 0 ? 0 : block.timestamp;
+
+        if (totalRewards > 0) {
+            arkn.mint(msg.sender, totalRewards);
+            emit ArknRewardsClaimed(msg.sender, totalRewards);
+        }
+
+        require(arkn.transfer(msg.sender, amount), "ARKN transfer failed");
+        emit ArknWithdrawn(msg.sender, amount);
+    }
+
+    function claimArknRewards() external nonReentrant {
+        StakeInfo storage stake = arknStakes[msg.sender];
+        uint256 totalRewards = stake.accumulatedRewards + _pendingArknRewards(stake);
+        if (totalRewards == 0) revert NoRewards();
+
+        stake.accumulatedRewards = 0;
+        stake.lastUpdateTime = block.timestamp;
+
+        arkn.mint(msg.sender, totalRewards);
+        emit ArknRewardsClaimed(msg.sender, totalRewards);
+    }
+
+    function getArknStakeInfo(address user) external view returns (
+        uint256 stakedAmount,
+        uint256 pendingRewards,
+        uint256 lastUpdateTime
+    ) {
+        StakeInfo memory stake = arknStakes[user];
+        stakedAmount = stake.amount;
+        pendingRewards = stake.accumulatedRewards + _pendingArknRewards(stake);
+        lastUpdateTime = stake.lastUpdateTime;
+    }
+
+    function getPendingArknRewards(address user) external view returns (uint256) {
+        StakeInfo memory stake = arknStakes[user];
+        return stake.accumulatedRewards + _pendingArknRewards(stake);
+    }
+
+    function setArknRewardRate(uint256 _rate) external onlyOwner {
+        emit ArknRewardRateUpdated(arknRewardRate, _rate);
+        arknRewardRate = _rate;
+    }
+
+    function _pendingArknRewards(StakeInfo memory stake) internal view returns (uint256) {
+        if (stake.amount == 0 || stake.lastUpdateTime == 0) return 0;
+        uint256 duration = block.timestamp - stake.lastUpdateTime;
+        return (stake.amount * arknRewardRate * duration) / 1e18;
     }
 
     function _pendingRewards(StakeInfo memory stake) internal view returns (uint256) {

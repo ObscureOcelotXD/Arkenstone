@@ -111,6 +111,36 @@ describe("AssetReceiver Contract", function () {
     expect(token2Balance).to.equal(token2Amount);
   });
 
+  it("Should revert setWithdrawler when given zero address", async function () {
+    await expect(
+      assetReceiver.setWithdrawler(ethers.ZeroAddress)
+    ).to.be.revertedWith("Withdrawler cannot be zero address");
+  });
+
+  it("Should revert withdrawEther when called by non-withdrawler", async function () {
+    await assetReceiver.depositAssets([], [], { value: ethers.parseEther("1.0") });
+    await expect(
+      assetReceiver.connect(addr1).withdrawEther(addr1.address, ethers.parseEther("0.5"))
+    ).to.be.revertedWith("Not authorized");
+  });
+
+  it("Should revert withdrawToken when called by non-withdrawler", async function () {
+    const Token = await ethers.getContractFactory("MockERC20");
+    const token = await Token.deploy("T", "T", ethers.parseEther("1000"));
+    await token.waitForDeployment();
+    await token.approve(await assetReceiver.getAddress(), ethers.parseEther("100"));
+    await assetReceiver.receiveTokens(await token.getAddress(), ethers.parseEther("100"));
+    await expect(
+      assetReceiver.connect(addr1).withdrawToken(await token.getAddress(), addr1.address, ethers.parseEther("50"))
+    ).to.be.revertedWith("Not authorized");
+  });
+
+  it("Should revert getEthStorageDuration when depositor has no ETH deposit", async function () {
+    await expect(
+      assetReceiver.getEthStorageDuration(addr1.address)
+    ).to.be.revertedWith("No ETH deposit found");
+  });
+
   // New tests for storage duration tracking.
   it("Should track ETH storage duration", async function () {
     // Deposit 1 ETH.
@@ -144,5 +174,14 @@ describe("AssetReceiver Contract", function () {
     const duration = await assetReceiver.getTokenStorageDuration(owner.address, await token.getAddress());
     // Expect duration to be at least 120 seconds.
     expect(duration).to.be.gte(120);
+  });
+
+  it("Should revert getTokenStorageDuration when no token deposit for depositor", async function () {
+    const Token = await ethers.getContractFactory("MockERC20");
+    const token = await Token.deploy("T", "T", ethers.parseEther("1000"));
+    await token.waitForDeployment();
+    await expect(
+      assetReceiver.getTokenStorageDuration(addr1.address, await token.getAddress())
+    ).to.be.revertedWith("No token deposit found");
   });
 });

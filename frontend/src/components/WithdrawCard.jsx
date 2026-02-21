@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { ethers } from "ethers";
 
-export default function WithdrawCard({ onWithdraw, loading, stakedAmount }) {
+function fmtArkn(wei) {
+  if (wei === 0n) return "0";
+  const val = parseFloat(ethers.formatEther(wei));
+  return val < 0.0001 ? "< 0.0001" : val.toFixed(4);
+}
+
+export default function WithdrawCard({ onWithdraw, loading, stakedAmount, pendingRewards = 0n }) {
   const [amount, setAmount] = useState("");
 
   const maxEth = stakedAmount > 0n
@@ -9,6 +15,8 @@ export default function WithdrawCard({ onWithdraw, loading, stakedAmount }) {
     : "0";
 
   const setMax = () => setAmount(maxEth);
+
+  const hasPendingRewards = pendingRewards > 0n;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -27,14 +35,14 @@ export default function WithdrawCard({ onWithdraw, loading, stakedAmount }) {
         <div className="card__icon">⬆</div>
         <div>
           <div className="card__title">Withdraw ETH</div>
-          <div className="card__subtitle">Also claims all pending ARKN</div>
+          <div className="card__subtitle">Also claims all pending ARKN to your wallet</div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <div className="input-group">
           <label htmlFor="withdraw-amount">Amount</label>
-          <div className="input-wrap">
+          <div className={`input-wrap ${overMax ? "input-wrap--error" : ""}`}>
             <input
               id="withdraw-amount"
               type="number"
@@ -44,14 +52,8 @@ export default function WithdrawCard({ onWithdraw, loading, stakedAmount }) {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               disabled={loading || stakedAmount === 0n}
-              style={overMax ? { borderColor: "var(--error-text)" } : {}}
             />
-            <span
-              className="input-max"
-              onClick={setMax}
-              title="Use max staked amount"
-              style={{ right: "46px" }}
-            >
+            <span className="input-max" onClick={setMax} title="Use max staked amount">
               MAX
             </span>
             <span className="input-suffix">ETH</span>
@@ -62,6 +64,12 @@ export default function WithdrawCard({ onWithdraw, loading, stakedAmount }) {
             </span>
           )}
         </div>
+
+        {hasPendingRewards && (
+          <p className="withdraw-pending-note">
+            You have <strong>{fmtArkn(pendingRewards)} ARKN</strong> pending — they’ll be claimed when you withdraw.
+          </p>
+        )}
 
         <button
           type="submit"

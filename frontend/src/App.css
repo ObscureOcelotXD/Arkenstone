@@ -71,15 +71,93 @@
   gap: 28px;
 }
 
+/* ── Sections (rewards → ARKN → ETH; more token rows later) ─── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+/* ── Collapsible section ───────────────────────────────────── */
+.collapsible-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.collapsible-section .section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.collapsible-section .section-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.collapsible-section .section-header .section-title {
+  flex: 1;
+}
+
+.section-chevron {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transition: transform var(--transition);
+}
+
+.collapsible-section .section-content {
+  padding: 0 20px 20px;
+}
+
 /* ── Cards grid ──────────────────────────────────────────── */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
-@media (max-width: 900px) {
-  .cards-grid {
+.cards-grid--single {
+  grid-template-columns: 1fr;
+  max-width: 420px;
+}
+
+.cards-grid--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.cards-grid--four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1000px) {
+  .cards-grid--four {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .cards-grid--two,
+  .cards-grid--four {
     grid-template-columns: 1fr;
   }
 }
@@ -134,11 +212,11 @@
 /* ── Stats row ───────────────────────────────────────────── */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .stats-row {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -201,6 +279,53 @@
   background: var(--gold-dim);
   border-radius: 8px;
   padding: 8px 12px;
+}
+
+.rewards-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rewards-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.rewards-value--sm {
+  font-size: 1.1rem;
+}
+
+/* ── Receive card ────────────────────────────────────────── */
+.receive-address-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.receive-address {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: var(--text-secondary);
+  word-break: break-all;
+  background: var(--bg-input);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+/* ── Withdraw ETH: note when user has pending ARKN ──────────── */
+.withdraw-pending-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--gold-dim);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 0;
 }
 
 /* ── Toast notification ──────────────────────────────────── */

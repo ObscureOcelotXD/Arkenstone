@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "update-addresses": "node scripts/update-frontend-addresses.js",
+    "deploy:local": "hardhat ignition deploy ignition/modules/ArkenDeploy.js --network localhost && node scripts/update-frontend-addresses.js"
   },
   "keywords": [],
   "author": "",
