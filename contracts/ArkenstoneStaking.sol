@@ -7,37 +7,45 @@ import "./ArkenstoneToken.sol";
 contract ArkenstoneStaking is ReentrancyGuard {
     ArkenstoneToken public immutable arkn;
 
-    // ~100 ARKN per ETH per day. Adjustable by owner.
-    uint256 public rewardRate = 1157407407407407;
+    uint256 public constant SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
+    uint256 public constant MIN_INTEREST_RATE_BPS = 100;   // 1%
+    uint256 public constant MAX_INTEREST_RATE_BPS = 1000;  // 10%
+
+    // Interest rate in basis points (e.g. 400 = 4% APY). Set by admin portal.
+    uint256 public interestRateBps = 400;
+    uint256 public arknInterestRateBps = 400;
+
     address public owner;
 
+    // TVL: total value locked (wei) for indexing / admin / subgraph
+    uint256 public totalEthStaked;
+    uint256 public totalArknStaked;
+
     struct StakeInfo {
-        uint256 amount;               // ETH currently staked
-        uint256 lastUpdateTime;       // timestamp of last deposit/claim/withdraw
-        uint256 accumulatedRewards;   // rewards snapshotted on updates
+        uint256 amount;
+        uint256 lastUpdateTime;
+        uint256 accumulatedRewards;
     }
 
     mapping(address => StakeInfo) public stakes;
-
-    // ARKN staking: stake ARKN to earn ARKN. Rate tunable later.
-    uint256 public arknRewardRate = 1157407407407407;
     mapping(address => StakeInfo) public arknStakes;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
-    event RewardRateUpdated(uint256 oldRate, uint256 newRate);
+    event InterestRateUpdated(uint256 oldBps, uint256 newBps);
 
     event ArknDeposited(address indexed user, uint256 amount);
     event ArknWithdrawn(address indexed user, uint256 amount);
     event ArknRewardsClaimed(address indexed user, uint256 amount);
-    event ArknRewardRateUpdated(uint256 oldRate, uint256 newRate);
+    event ArknInterestRateUpdated(uint256 oldBps, uint256 newBps);
 
     error ZeroAddress();
     error ZeroAmount();
     error InsufficientStake();
     error NoRewards();
     error NotOwner();
+    error RateOutOfRange();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -50,24 +58,22 @@ contract ArkenstoneStaking is ReentrancyGuard {
         owner = msg.sender;
     }
 
-    // Deposit ETH to start earning ARKN rewards.
+    // ─── ETH staking ───────────────────────────────────────────────────────
     function deposit() external payable nonReentrant {
         if (msg.value == 0) revert ZeroAmount();
 
         StakeInfo storage stake = stakes[msg.sender];
-
-        // Snapshot pending rewards before changing the stake amount.
         if (stake.amount > 0) {
             stake.accumulatedRewards += _pendingRewards(stake);
         }
 
         stake.amount += msg.value;
         stake.lastUpdateTime = block.timestamp;
+        totalEthStaked += msg.value;
 
         emit Deposited(msg.sender, msg.value);
     }
 
-    // Withdraw staked ETH. Automatically claims all pending ARKN rewards.
     function withdraw(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         StakeInfo storage stake = stakes[msg.sender];
@@ -78,6 +84,7 @@ contract ArkenstoneStaking is ReentrancyGuard {
         stake.amount -= amount;
         stake.accumulatedRewards = 0;
         stake.lastUpdateTime = stake.amount == 0 ? 0 : block.timestamp;
+        totalEthStaked -= amount;
 
         if (totalRewards > 0) {
             arkn.mint(msg.sender, totalRewards);
@@ -90,7 +97,6 @@ contract ArkenstoneStaking is ReentrancyGuard {
         emit Withdrawn(msg.sender, amount);
     }
 
-    // Claim all accumulated ARKN rewards without touching the stake.
     function claimRewards() external nonReentrant {
         StakeInfo storage stake = stakes[msg.sender];
         uint256 totalRewards = stake.accumulatedRewards + _pendingRewards(stake);
@@ -103,13 +109,11 @@ contract ArkenstoneStaking is ReentrancyGuard {
         emit RewardsClaimed(msg.sender, totalRewards);
     }
 
-    // Returns total pending ARKN rewards for a user (snapshotted + accruing).
     function getPendingRewards(address user) external view returns (uint256) {
         StakeInfo memory stake = stakes[user];
         return stake.accumulatedRewards + _pendingRewards(stake);
     }
 
-    // Returns a summary of a user's stake position.
     function getStakeInfo(address user) external view returns (
         uint256 stakedAmount,
         uint256 pendingRewards,
@@ -121,12 +125,15 @@ contract ArkenstoneStaking is ReentrancyGuard {
         lastUpdateTime = stake.lastUpdateTime;
     }
 
-    function setRewardRate(uint256 _rewardRate) external onlyOwner {
-        emit RewardRateUpdated(rewardRate, _rewardRate);
-        rewardRate = _rewardRate;
+    /// @notice Set ETH pool interest rate (basis points). Clamped to [MIN_INTEREST_RATE_BPS, MAX_INTEREST_RATE_BPS].
+    function setInterestRateBps(uint256 bps) external onlyOwner {
+        if (bps < MIN_INTEREST_RATE_BPS || bps > MAX_INTEREST_RATE_BPS) revert RateOutOfRange();
+        uint256 oldBps = interestRateBps;
+        interestRateBps = bps;
+        emit InterestRateUpdated(oldBps, bps);
     }
 
-    // ─── ARKN staking ─────────────────────────────────────────────────────
+    // ─── ARKN staking ───────────────────────────────────────────────────────
     function depositArkn(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
@@ -137,6 +144,7 @@ contract ArkenstoneStaking is ReentrancyGuard {
 
         stake.amount += amount;
         stake.lastUpdateTime = block.timestamp;
+        totalArknStaked += amount;
 
         require(arkn.transferFrom(msg.sender, address(this), amount), "ARKN transfer failed");
         emit ArknDeposited(msg.sender, amount);
@@ -152,6 +160,7 @@ contract ArkenstoneStaking is ReentrancyGuard {
         stake.amount -= amount;
         stake.accumulatedRewards = 0;
         stake.lastUpdateTime = stake.amount == 0 ? 0 : block.timestamp;
+        totalArknStaked -= amount;
 
         if (totalRewards > 0) {
             arkn.mint(msg.sender, totalRewards);
@@ -190,20 +199,30 @@ contract ArkenstoneStaking is ReentrancyGuard {
         return stake.accumulatedRewards + _pendingArknRewards(stake);
     }
 
-    function setArknRewardRate(uint256 _rate) external onlyOwner {
-        emit ArknRewardRateUpdated(arknRewardRate, _rate);
-        arknRewardRate = _rate;
+    /// @notice Set ARKN pool interest rate (basis points). Clamped to [MIN_INTEREST_RATE_BPS, MAX_INTEREST_RATE_BPS].
+    function setArknInterestRateBps(uint256 bps) external onlyOwner {
+        if (bps < MIN_INTEREST_RATE_BPS || bps > MAX_INTEREST_RATE_BPS) revert RateOutOfRange();
+        uint256 oldBps = arknInterestRateBps;
+        arknInterestRateBps = bps;
+        emit ArknInterestRateUpdated(oldBps, bps);
+    }
+
+    // ─── TVL (for admin portal / The Graph) ───────────────────────────────────
+    /// @notice Total value locked: (total ETH staked in wei, total ARKN staked in wei).
+    function getTVL() external view returns (uint256 totalEth, uint256 totalArkn) {
+        return (totalEthStaked, totalArknStaked);
+    }
+
+    // ─── Internal reward math (basis points → per-second rate) ─────────────────
+    function _pendingRewards(StakeInfo memory stake) internal view returns (uint256) {
+        if (stake.amount == 0 || stake.lastUpdateTime == 0) return 0;
+        uint256 duration = block.timestamp - stake.lastUpdateTime;
+        return (stake.amount * interestRateBps * duration) / (10000 * SECONDS_PER_YEAR);
     }
 
     function _pendingArknRewards(StakeInfo memory stake) internal view returns (uint256) {
         if (stake.amount == 0 || stake.lastUpdateTime == 0) return 0;
         uint256 duration = block.timestamp - stake.lastUpdateTime;
-        return (stake.amount * arknRewardRate * duration) / 1e18;
-    }
-
-    function _pendingRewards(StakeInfo memory stake) internal view returns (uint256) {
-        if (stake.amount == 0 || stake.lastUpdateTime == 0) return 0;
-        uint256 duration = block.timestamp - stake.lastUpdateTime;
-        return (stake.amount * rewardRate * duration) / 1e18;
+        return (stake.amount * arknInterestRateBps * duration) / (10000 * SECONDS_PER_YEAR);
     }
 }
