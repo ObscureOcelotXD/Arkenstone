@@ -281,16 +281,132 @@
   padding: 8px 12px;
 }
 
-.rewards-breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* ── Rewards asset table (aligned badge column) ────────────── */
+.rewards-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.rewards-table th,
+.rewards-table td {
+  padding: 6px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.rewards-table tr:last-child td {
+  border-bottom: none;
+}
+
+.rewards-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 8px;
+}
+
+.rewards-table__source {
+  color: var(--text-secondary);
+}
+
+.rewards-table__apy {
+  width: 1px; /* shrink to content; badges align in same column */
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.rewards-table__pending {
+  text-align: right;
+  font-weight: 700;
+  color: var(--gold);
 }
 
 .rewards-label {
   font-size: 0.8rem;
   color: var(--text-secondary);
   margin-right: 8px;
+}
+
+/* ── APY badge (expensive / premium look) ───────────────────── */
+.rewards-apy-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rewards-apy-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.18) 0%, rgba(212, 168, 67, 0.08) 100%);
+  border: 1px solid var(--gold-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 0 rgba(212, 168, 67, 0.15);
+}
+
+.rewards-apy-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: help;
+  transition: color var(--transition);
+}
+
+.rewards-apy-trigger:hover {
+  color: var(--gold);
+}
+
+.rewards-apy-trigger-icon {
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.rewards-apy-popup {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: 220px;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow), 0 0 20px rgba(212, 168, 67, 0.08);
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition), visibility var(--transition);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.rewards-apy-popup strong {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.rewards-apy-trigger:hover .rewards-apy-popup {
+  opacity: 1;
+  visibility: visible;
 }
 
 .rewards-value--sm {

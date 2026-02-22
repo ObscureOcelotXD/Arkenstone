@@ -83,6 +83,39 @@ describe("ArkenstoneStaking", function () {
         .to.be.revertedWithCustomError(staking, "NoRewards");
     });
 
+    it("Should claim all rewards (ETH + ARKN stake) in one transaction", async function () {
+      // Build ETH pending: stake 1500 ETH, claim once to get ARKN, then stake 1 more ETH and wait
+      await staking.deposit({ value: ethers.parseEther("1500") });
+      await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
+      await network.provider.send("evm_mine");
+      await staking.claimRewards();
+      await staking.deposit({ value: ethers.parseEther("1") });
+      await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
+      await network.provider.send("evm_mine");
+      const ethPending = await staking.getPendingRewards(owner.address);
+      expect(ethPending).to.be.gt(0n);
+
+      // Build ARKN pending: stake 40 ARKN (owner has ~60 from first claim), wait 1 year
+      await arkn.approve(await staking.getAddress(), ethers.parseEther("40"));
+      await staking.depositArkn(ethers.parseEther("40"));
+      await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
+      await network.provider.send("evm_mine");
+      const arknPending = await staking.getPendingArknRewards(owner.address);
+      expect(arknPending).to.be.gt(0n);
+
+      const balanceBefore = await arkn.balanceOf(owner.address);
+      await staking.claimAllRewards();
+      const balanceAfter = await arkn.balanceOf(owner.address);
+      expect(balanceAfter - balanceBefore).to.be.gte(ethPending + arknPending);
+      expect(await staking.getPendingRewards(owner.address)).to.equal(0n);
+      expect(await staking.getPendingArknRewards(owner.address)).to.equal(0n);
+    });
+
+    it("Should revert claimAllRewards when no rewards", async function () {
+      await expect(staking.claimAllRewards())
+        .to.be.revertedWithCustomError(staking, "NoRewards");
+    });
+
     it("Should withdraw ETH and claim rewards", async function () {
       await staking.deposit({ value: ethers.parseEther("2") });
       await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
@@ -115,15 +148,15 @@ describe("ArkenstoneStaking", function () {
 
   describe("ARKN staking", function () {
     beforeEach(async function () {
-      // Stake so claim gives enough ARKN (4% APY): 2000 ETH -> 80 ARKN per year
-      await staking.deposit({ value: ethers.parseEther("2000") });
+      // Stake so claim gives enough ARKN (4% APY): 1500 ETH -> 60 ARKN per year
+      await staking.deposit({ value: ethers.parseEther("1500") });
       await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
       await network.provider.send("evm_mine");
       await staking.claimRewards();
     });
 
     it("Should accept ARKN deposit", async function () {
-      const amount = ethers.parseEther("50");
+      const amount = ethers.parseEther("40");
       await arkn.approve(await staking.getAddress(), amount);
       await expect(staking.depositArkn(amount))
         .to.emit(staking, "ArknDeposited")
@@ -152,17 +185,17 @@ describe("ArkenstoneStaking", function () {
     });
 
     it("Should withdraw ARKN and claim rewards", async function () {
-      const amount = ethers.parseEther("50");
+      const amount = ethers.parseEther("40");
       await arkn.approve(await staking.getAddress(), amount);
       await staking.depositArkn(amount);
       await network.provider.send("evm_increaseTime", [SECONDS_PER_YEAR]);
       await network.provider.send("evm_mine");
 
       const balanceBefore = await arkn.balanceOf(owner.address);
-      await staking.withdrawArkn(ethers.parseEther("20"));
+      await staking.withdrawArkn(ethers.parseEther("15"));
       expect(await arkn.balanceOf(owner.address)).to.be.gt(balanceBefore);
       const [staked] = await staking.getArknStakeInfo(owner.address);
-      expect(staked).to.equal(ethers.parseEther("30"));
+      expect(staked).to.equal(ethers.parseEther("25"));
     });
   });
 

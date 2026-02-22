@@ -109,6 +109,26 @@ contract ArkenstoneStaking is ReentrancyGuard {
         emit RewardsClaimed(msg.sender, totalRewards);
     }
 
+    /// @notice Claim all pending ARKN from both ETH and ARKN stakes in one transaction.
+    function claimAllRewards() external nonReentrant {
+        StakeInfo storage ethStake = stakes[msg.sender];
+        StakeInfo storage arknStake = arknStakes[msg.sender];
+
+        uint256 fromEth = ethStake.accumulatedRewards + _pendingRewards(ethStake);
+        uint256 fromArkn = arknStake.accumulatedRewards + _pendingArknRewards(arknStake);
+        uint256 total = fromEth + fromArkn;
+        if (total == 0) revert NoRewards();
+
+        ethStake.accumulatedRewards = 0;
+        ethStake.lastUpdateTime = block.timestamp;
+        arknStake.accumulatedRewards = 0;
+        arknStake.lastUpdateTime = block.timestamp;
+
+        arkn.mint(msg.sender, total);
+        if (fromEth > 0) emit RewardsClaimed(msg.sender, fromEth);
+        if (fromArkn > 0) emit ArknRewardsClaimed(msg.sender, fromArkn);
+    }
+
     function getPendingRewards(address user) external view returns (uint256) {
         StakeInfo memory stake = stakes[user];
         return stake.accumulatedRewards + _pendingRewards(stake);

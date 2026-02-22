@@ -28,6 +28,8 @@ export default function App() {
   const [arknSupply, setArknSupply]           = useState(0n);
   const [arknStakedAmount, setArknStakedAmount]     = useState(0n);
   const [pendingArknRewards, setPendingArknRewards] = useState(0n);
+  const [ethInterestBps, setEthInterestBps]         = useState(null);
+  const [arknInterestBps, setArknInterestBps]       = useState(null);
 
   const [txStatus, setTxStatus]             = useState(null); // null | "pending" | "success" | "error"
   const [loading, setLoading]               = useState(false);
@@ -65,12 +67,18 @@ export default function App() {
       const [arknStaked, arknRewards] = await stakingContract.getArknStakeInfo(account);
       const balance = await tokenContract.balanceOf(account);
       const supply  = await tokenContract.totalSupply();
+      const [ethBps, arknBps] = await Promise.all([
+        stakingContract.interestRateBps(),
+        stakingContract.arknInterestRateBps(),
+      ]);
       setStakedAmount(staked);
       setPendingRewards(rewards);
       setArknStakedAmount(arknStaked);
       setPendingArknRewards(arknRewards);
       setArknBalance(balance);
       setArknSupply(supply);
+      setEthInterestBps(Number(ethBps));
+      setArknInterestBps(Number(arknBps));
     } catch (err) {
       console.error("Data refresh failed:", err);
     }
@@ -128,14 +136,7 @@ export default function App() {
     await withTx(() => stakingContract.depositArkn(amountWei));
   };
   const handleWithdrawArkn = (amount) => withTx(() => stakingContract.withdrawArkn(ethers.parseEther(amount)));
-  const handleClaimAll = async () => {
-    const [ethPending, arknPending] = await Promise.all([
-      stakingContract.getPendingRewards(account),
-      stakingContract.getPendingArknRewards(account),
-    ]);
-    if (ethPending > 0n) await withTx(() => stakingContract.claimRewards());
-    if (arknPending > 0n) await withTx(() => stakingContract.claimArknRewards());
-  };
+  const handleClaimAll = () => withTx(() => stakingContract.claimAllRewards());
 
   return (
     <div className="app">
@@ -175,6 +176,8 @@ export default function App() {
                 loading={loading}
                 pendingRewards={pendingRewards}
                 pendingArknRewards={pendingArknRewards}
+                ethApyPercent={ethInterestBps != null ? ethInterestBps / 100 : null}
+                arknApyPercent={arknInterestBps != null ? arknInterestBps / 100 : null}
               />
             </div>
           </CollapsibleSection>

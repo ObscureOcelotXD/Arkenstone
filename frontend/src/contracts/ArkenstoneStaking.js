@@ -3,6 +3,7 @@ const ABI = [
   "function deposit() payable",
   "function withdraw(uint256 amount)",
   "function claimRewards()",
+  "function claimAllRewards()",
   "function getPendingRewards(address user) view returns (uint256)",
   "function getStakeInfo(address user) view returns (uint256 stakedAmount, uint256 pendingRewards, uint256 lastUpdateTime)",
   "function interestRateBps() view returns (uint256)",
