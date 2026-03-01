@@ -1,5 +1,9 @@
 # GraphiQL — example queries for the Arkenstone subgraph
 
+**Main setup:** [SETUP.md](./SETUP.md) — quick start and subgraph deploy.
+
+---
+
 When the local Graph Node is running, open **GraphiQL** in your browser (e.g. the link from the Graph Node or `http://127.0.0.1:8000/subgraphs/name/arkenstone/arkenstone`). You can run these queries there.
 
 ---
@@ -77,6 +81,19 @@ query RecentEthWithdraws {
     blockNumber
     timestamp
     transactionHash
+  }
+}
+```
+
+### TVL over time (snapshots at each deposit/withdraw)
+
+```graphql
+query TvlOverTime {
+  tvlSnapshots(first: 20, orderBy: timestamp, orderDirection: desc) {
+    id
+    totalEthStaked
+    totalArknStaked
+    timestamp
   }
 }
 ```

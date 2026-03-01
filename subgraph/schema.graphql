@@ -9,6 +9,15 @@ type Protocol @entity {
   updatedAtTimestamp: BigInt!
 }
 
+# TVL at each deposit/withdraw (for "Volume / TVL over time" in admin)
+type TvlSnapshot @entity {
+  id: ID!
+  totalEthStaked: BigInt!
+  totalArknStaked: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
 # One row per interest rate change (ETH or ARKN pool)
 type InterestRateChange @entity {
   id: ID!

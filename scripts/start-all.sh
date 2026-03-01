@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Start Hardhat node, deploy, sync subgraph, Docker (Graph Node), frontend, and admin.
+# Start Hardhat, deploy contracts, Docker (Graph Node), subgraph deploy, frontend, and admin — one ready-to-go stack.
 # From project root: ./scripts/start-all.sh
-# Restart mode (kill 8545, 5173, 5174 first): ./scripts/start-all.sh --restart
+# Restart mode (kill ports, docker down, wipe Graph data, then start fresh): ./scripts/start-all.sh --restart
 
 set -e
 cd "$(dirname "$0")/.."
@@ -24,10 +24,17 @@ kill_port() {
 }
 
 if [ "$RESTART" = true ]; then
-  echo "Restart mode: clearing ports 8545, 5173, 5174..."
+  echo "Restart mode: clearing ports 8545, 5173, 5174; stopping Docker; wiping Graph Node data..."
   kill_port 8545
   kill_port 5173
   kill_port 5174
+  if command -v docker >/dev/null 2>&1; then
+    docker compose down 2>/dev/null || true
+  fi
+  if [ -d "$ROOT/data" ]; then
+    rm -rf "$ROOT/data"
+    echo "Removed data/ so Graph Node will index the current Hardhat chain from scratch."
+  fi
   sleep 2
 fi
 
@@ -74,7 +81,11 @@ if command -v docker >/dev/null 2>&1; then
     j=$((j + 2))
   done
   if [ $j -ge 60 ]; then
-    echo "Graph Node did not respond in 60s; admin subgraph may show an error until it is ready."
+    echo "Graph Node did not respond in 60s; skipping subgraph deploy. Run from subgraph/: npm run create-local && npm run deploy-local"
+  else
+    echo "Building and deploying subgraph to local Graph Node..."
+    (cd "$ROOT/subgraph" && npm run codegen && npm run build:localhost && (npm run create-local 2>/dev/null || true) && npx graph deploy --node http://127.0.0.1:8020 --ipfs http://127.0.0.1:5001 arkenstone/arkenstone --network localhost --version-label "v0.0.$(date +%s)")
+    echo "Subgraph deployed; admin Dashboard will show rate history once data exists."
   fi
 else
   echo "Docker not found; skipping Graph Node. Install Docker to use the subgraph."
@@ -93,13 +104,10 @@ echo "=============================================="
 echo "  Arkenstone local stack started"
 echo "=============================================="
 echo "  Hardhat node:  http://127.0.0.1:8545 (chain 31337)"
-echo "  Frontend:      http://localhost:5173"
-echo "  Admin:         http://localhost:5174"
-echo "  Graph Node:    http://127.0.0.1:8000 (queries)"
+echo "  Frontend:      http://localhost:5173  (wallet: connect to 127.0.0.1:8545, chain 31337)"
+echo "  Admin:         http://localhost:5174  (Dashboard + Admin tab)"
+echo "  Graph Node:    http://127.0.0.1:8000  (subgraph already deployed)"
 echo ""
-echo "  Subgraph (one-time or after changes):"
-echo "    cd subgraph && npm run create-local && npm run deploy-local"
-echo "  Then set admin/.env: VITE_SUBGRAPH_URL=http://localhost:5174/subgraphs/name/arkenstone/arkenstone"
-echo ""
-echo "  To stop: kill the node (lsof -t -i:8545), frontend (5173), admin (5174), and run: docker compose down"
+echo "  Full setup guide: docs/SETUP.md"
+echo "  To stop: npm run stop:all"
 echo "=============================================="

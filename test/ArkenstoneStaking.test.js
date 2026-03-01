@@ -226,6 +226,38 @@ describe("ArkenstoneStaking", function () {
     });
   });
 
+  describe("Stake info for non-depositor", function () {
+    it("Should return zeros for getStakeInfo when address has no stake", async function () {
+      const [staked, pending, lastUpdate] = await staking.getStakeInfo(addr1.address);
+      expect(staked).to.equal(0n);
+      expect(pending).to.equal(0n);
+      expect(lastUpdate).to.equal(0n);
+    });
+
+    it("Should return zeros for getArknStakeInfo when address has no ARKN stake", async function () {
+      const [staked] = await staking.getArknStakeInfo(addr1.address);
+      expect(staked).to.equal(0n);
+    });
+  });
+
+  describe("Multiple depositors", function () {
+    it("Should aggregate TVL across multiple ETH depositors", async function () {
+      await staking.connect(addr1).deposit({ value: ethers.parseEther("1") });
+      await staking.connect(addr2).deposit({ value: ethers.parseEther("2") });
+      expect(await staking.totalEthStaked()).to.equal(ethers.parseEther("3"));
+      const [ethTvl] = await staking.getTVL();
+      expect(ethTvl).to.equal(ethers.parseEther("3"));
+    });
+  });
+
+  describe("Owner — setArknInterestRateBps", function () {
+    it("Should revert setArknInterestRateBps when not owner", async function () {
+      await expect(
+        staking.connect(addr1).setArknInterestRateBps(500)
+      ).to.be.revertedWithCustomError(staking, "NotOwner");
+    });
+  });
+
   describe("TVL", function () {
     it("Should report zero TVL initially", async function () {
       const [ethTvl, arknTvl] = await staking.getTVL();

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useStakingData } from "./hooks/useStakingData.js";
 import { useSubgraphData } from "./hooks/useSubgraphData.js";
+import { useWallet } from "./hooks/useWallet.js";
+import InterestRateForm from "./components/InterestRateForm.jsx";
 import { ethers } from "ethers";
 import "./App.css";
 
@@ -22,14 +24,31 @@ function bpsToPercent(bps) {
 
 export default function App() {
   const [tab, setTab] = useState("dashboard");
-  const { data: staking, loading: stakingLoading, error: stakingError } = useStakingData();
-  const { rateHistory, volumeOrTvl, loading: graphLoading, error: graphError, configured: graphConfigured } = useSubgraphData();
+  const { data: staking, loading: stakingLoading, error: stakingError, refetch: refetchStaking } = useStakingData();
+  const { rateHistory, volumeOrTvl, loading: graphLoading, error: graphError, configured: graphConfigured, refetch: refetchSubgraph } = useSubgraphData();
+  const { account, connect, disconnect, stakingContractWithSigner, isRightChain, isConnected, error: walletError } = useWallet();
+
+  const onRateUpdateSuccess = useCallback(() => {
+    refetchStaking();
+    setTimeout(() => refetchSubgraph(), 2500);
+  }, [refetchStaking, refetchSubgraph]);
 
   return (
     <div className="admin-app">
       <header className="admin-header">
         <div className="admin-header__inner">
           <h1 className="admin-header__title">◆ Arkenstone Admin</h1>
+          <div className="admin-header__wallet">
+            {isConnected ? (
+              <>
+                <span className="admin-header__account">{account?.slice(0, 6)}…{account?.slice(-4)}</span>
+                {!isRightChain && <span className="admin-header__badge">Wrong network</span>}
+                <button type="button" className="btn btn--ghost btn--sm" onClick={disconnect}>Disconnect</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn--primary btn--sm" onClick={connect}>Connect wallet</button>
+            )}
+          </div>
           <nav className="admin-nav">
             <button
               className={`admin-nav__btn ${tab === "dashboard" ? "admin-nav__btn--active" : ""}`}
@@ -151,7 +170,7 @@ export default function App() {
                         <div className="admin-card__label">Volume / TVL over time</div>
                         {volumeOrTvl.length === 0 ? (
                           <div className="admin-card__muted">
-                            No snapshots yet. Subgraph can expose <code>dailySnapshots</code> or similar for deposits/withdrawals and TVL.
+                            No TVL snapshots yet. Each deposit or withdraw on the staking contract is indexed as a snapshot; do some stakes to see history here.
                           </div>
                         ) : (
                           <ul className="admin-list">
@@ -179,16 +198,37 @@ export default function App() {
         {tab === "admin" && (
           <div className="dashboard">
             <section className="dashboard-section">
-              <h2 className="dashboard-section__title">Admin actions</h2>
-              <p className="dashboard-section__sub">Coming soon</p>
+              <h2 className="dashboard-section__title">Interest rates</h2>
+              <p className="dashboard-section__sub">Update ETH and ARKN pool APY (owner only). Changes appear in Dashboard → Rate history.</p>
+              {walletError && <div className="admin-alert admin-alert--error">{walletError}</div>}
+              {!isConnected ? (
+                <div className="admin-card">
+                  <p className="admin-card__muted">Connect a wallet that is the staking contract owner to change rates.</p>
+                  <button type="button" className="btn btn--primary" onClick={connect} style={{ marginTop: "12px" }}>
+                    Connect wallet
+                  </button>
+                </div>
+              ) : !isRightChain ? (
+                <div className="admin-alert admin-alert--error">
+                  Switch your wallet to the correct network (chain ID 31337 for local Hardhat).
+                </div>
+              ) : (
+                <div className="admin-card">
+                  <InterestRateForm
+                    stakingContractWithSigner={stakingContractWithSigner}
+                    currentEthBps={staking?.interestRateBps ?? null}
+                    currentArknBps={staking?.arknInterestRateBps ?? null}
+                    onSuccess={onRateUpdateSuccess}
+                    disabled={stakingLoading}
+                  />
+                </div>
+              )}
+            </section>
+            <section className="dashboard-section">
+              <h2 className="dashboard-section__title">Other admin</h2>
+              <p className="dashboard-section__sub">Coming later</p>
               <div className="admin-card">
-                <ul className="admin-list">
-                  <li><strong>Interest rate changes</strong> — set ETH and ARKN pool APY (1–10%)</li>
-                  <li><strong>ERC‑20 eligibility</strong> — add or remove tokens from staking eligibility</li>
-                </ul>
-                <p className="admin-card__muted" style={{ marginTop: "12px" }}>
-                  These will require connecting a wallet with owner privileges.
-                </p>
+                <p className="admin-card__muted">ERC‑20 eligibility (add/remove tokens) — TBD.</p>
               </div>
             </section>
           </div>

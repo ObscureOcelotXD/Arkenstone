@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { STAKING_ADDRESS, RPC_URL, STAKING_ABI } from "../config/contracts.js";
 
@@ -12,38 +12,33 @@ export function useStakingData() {
     arknInterestRateBps: null,
   });
 
-  useEffect(() => {
-    let cancelled = false;
+  const refetch = useCallback(async () => {
+    setLoading(true);
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, provider);
-
-    async function fetchData() {
-      try {
-        const [tvl, ethBps, arknBps] = await Promise.all([
-          contract.getTVL(),
-          contract.interestRateBps(),
-          contract.arknInterestRateBps(),
-        ]);
-        if (cancelled) return;
-        setData({
-          totalEthStaked: tvl[0],
-          totalArknStaked: tvl[1],
-          interestRateBps: ethBps,
-          arknInterestRateBps: arknBps,
-        });
-        setError(null);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.message || "Failed to fetch staking data");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    try {
+      const [tvl, ethBps, arknBps] = await Promise.all([
+        contract.getTVL(),
+        contract.interestRateBps(),
+        contract.arknInterestRateBps(),
+      ]);
+      setData({
+        totalEthStaked: tvl[0],
+        totalArknStaked: tvl[1],
+        interestRateBps: ethBps,
+        arknInterestRateBps: arknBps,
+      });
+      setError(null);
+    } catch (err) {
+      setError(err.message || "Failed to fetch staking data");
+    } finally {
+      setLoading(false);
     }
-
-    fetchData();
-    return () => { cancelled = true; };
   }, []);
 
-  return { data, loading, error };
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch };
 }

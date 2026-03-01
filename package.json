@@ -8,7 +8,8 @@
     "deploy:local": "hardhat ignition deploy ignition/modules/ArkenDeploy.js --network localhost && node scripts/update-frontend-addresses.js && node scripts/sync-admin-env.js",
     "deploy:sepolia": "hardhat ignition deploy ignition/modules/ArkenDeploy.js --network sepolia && CHAIN_ID=11155111 node scripts/update-frontend-addresses.js",
     "start:all": "./scripts/start-all.sh",
-    "start:all:restart": "./scripts/start-all.sh --restart"
+    "start:all:restart": "./scripts/start-all.sh --restart",
+    "stop:all": "./scripts/stop-all.sh"
   },
   "keywords": [],
   "author": "",

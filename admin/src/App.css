@@ -17,6 +17,27 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-header__wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-header__account {
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+  color: var(--text-secondary);
+}
+
+.admin-header__badge {
+  font-size: 0.75rem;
+  color: var(--error-text);
+  background: var(--error-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .admin-header__title {
@@ -188,3 +209,56 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+
+/* Buttons (admin) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--primary { background: var(--gold); color: #0a0a10; }
+.btn--primary:hover:not(:disabled) { background: var(--gold-light); }
+.btn--ghost { background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border); }
+.btn--ghost:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
+.btn--sm { padding: 6px 12px; font-size: 0.8rem; }
+
+/* Interest rate form */
+.rate-form__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.rate-form__row:last-of-type { margin-bottom: 0; }
+.rate-form__label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 200px;
+}
+.rate-form__input {
+  width: 100px;
+  padding: 8px 12px;
+  font-size: 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+}
+.rate-form__input:focus { border-color: var(--gold-border); }
+.rate-form__input::placeholder { color: var(--text-secondary); opacity: 0.6; }

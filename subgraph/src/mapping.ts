@@ -9,6 +9,7 @@ import {
 } from "../generated/ArkenstoneStaking/ArkenstoneStaking";
 import {
   Protocol,
+  TvlSnapshot,
   InterestRateChange,
   EthDeposit,
   EthWithdraw,
@@ -44,6 +45,14 @@ export function handleDeposited(event: Deposited): void {
   protocol.updatedAtTimestamp = event.block.timestamp;
   protocol.save();
 
+  let snapId = makeEventId(event.transaction.hash, event.logIndex);
+  let snap = new TvlSnapshot(snapId);
+  snap.totalEthStaked = protocol.totalEthStaked;
+  snap.totalArknStaked = protocol.totalArknStaked;
+  snap.blockNumber = event.block.number;
+  snap.timestamp = event.block.timestamp;
+  snap.save();
+
   let id = makeEventId(event.transaction.hash, event.logIndex);
   let deposit = new EthDeposit(id);
   deposit.user = event.params.user;
@@ -60,6 +69,14 @@ export function handleWithdrawn(event: Withdrawn): void {
   protocol.updatedAtBlock = event.block.number;
   protocol.updatedAtTimestamp = event.block.timestamp;
   protocol.save();
+
+  let snapId = makeEventId(event.transaction.hash, event.logIndex);
+  let snap = new TvlSnapshot(snapId);
+  snap.totalEthStaked = protocol.totalEthStaked;
+  snap.totalArknStaked = protocol.totalArknStaked;
+  snap.blockNumber = event.block.number;
+  snap.timestamp = event.block.timestamp;
+  snap.save();
 
   let id = makeEventId(event.transaction.hash, event.logIndex);
   let withdraw = new EthWithdraw(id);
@@ -96,6 +113,14 @@ export function handleArknDeposited(event: ArknDeposited): void {
   protocol.updatedAtTimestamp = event.block.timestamp;
   protocol.save();
 
+  let snapId = makeEventId(event.transaction.hash, event.logIndex);
+  let snap = new TvlSnapshot(snapId);
+  snap.totalEthStaked = protocol.totalEthStaked;
+  snap.totalArknStaked = protocol.totalArknStaked;
+  snap.blockNumber = event.block.number;
+  snap.timestamp = event.block.timestamp;
+  snap.save();
+
   let id = makeEventId(event.transaction.hash, event.logIndex);
   let deposit = new ArknDeposit(id);
   deposit.user = event.params.user;
@@ -112,6 +137,14 @@ export function handleArknWithdrawn(event: ArknWithdrawn): void {
   protocol.updatedAtBlock = event.block.number;
   protocol.updatedAtTimestamp = event.block.timestamp;
   protocol.save();
+
+  let snapId = makeEventId(event.transaction.hash, event.logIndex);
+  let snap = new TvlSnapshot(snapId);
+  snap.totalEthStaked = protocol.totalEthStaked;
+  snap.totalArknStaked = protocol.totalArknStaked;
+  snap.blockNumber = event.block.number;
+  snap.timestamp = event.block.timestamp;
+  snap.save();
 
   let id = makeEventId(event.transaction.hash, event.logIndex);
   let withdraw = new ArknWithdraw(id);

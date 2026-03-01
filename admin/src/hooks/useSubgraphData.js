@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { querySubgraph, QUERIES } from "../lib/subgraph.js";
 import { SUBGRAPH_URL } from "../config/contracts.js";
 
@@ -8,34 +8,35 @@ export function useSubgraphData() {
   const [loading, setLoading] = useState(!!SUBGRAPH_URL);
   const [error, setError] = useState(SUBGRAPH_URL ? null : "Subgraph not configured");
 
+  const refetch = useCallback(async () => {
+    if (!SUBGRAPH_URL) return;
+    setLoading(true);
+    try {
+      const [rateRes, tvlRes] = await Promise.all([
+        querySubgraph(QUERIES.rateHistory, { first: 20 }),
+        querySubgraph(QUERIES.tvlOverTime, { first: 30 }),
+      ]);
+      if (rateRes.error && tvlRes.error) {
+        setError(rateRes.error);
+        return;
+      }
+      setError(null);
+      setRateHistory(rateRes.data?.interestRateChanges ?? []);
+      setVolumeOrTvl(tvlRes.data?.tvlSnapshots ?? []);
+    } catch (err) {
+      setError(err.message || "Subgraph error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!SUBGRAPH_URL) {
       setLoading(false);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const [rateRes, volumeRes] = await Promise.all([
-          querySubgraph(QUERIES.rateHistory, { first: 20 }),
-          querySubgraph(QUERIES.volumeOrTvl, { first: 30 }),
-        ]);
-        if (cancelled) return;
-        if (rateRes.error && volumeRes.error) {
-          setError(rateRes.error);
-          return;
-        }
-        setError(null);
-        setRateHistory(rateRes.data?.interestRateChanges ?? []);
-        setVolumeOrTvl(volumeRes.data?.dailySnapshots ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err.message || "Subgraph error");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    refetch();
+  }, [refetch, SUBGRAPH_URL]);
 
-  return { rateHistory, volumeOrTvl, loading, error, configured: !!SUBGRAPH_URL };
+  return { rateHistory, volumeOrTvl, loading, error, configured: !!SUBGRAPH_URL, refetch };
 }

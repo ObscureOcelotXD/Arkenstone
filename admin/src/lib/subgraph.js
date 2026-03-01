@@ -51,15 +51,13 @@ export const QUERIES = {
       }
     }
   `,
-  volumeOrTvl: `
-    query Volume($first: Int!) {
-      dailySnapshots(first: $first, orderBy: timestamp, orderDirection: desc) {
+  tvlOverTime: `
+    query TvlOverTime($first: Int!) {
+      tvlSnapshots(first: $first, orderBy: timestamp, orderDirection: desc) {
         id
-        timestamp
         totalEthStaked
         totalArknStaked
-        depositVolume
-        withdrawVolume
+        timestamp
       }
     }
   `,

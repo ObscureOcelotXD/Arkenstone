@@ -1,5 +1,9 @@
 # What the admin app needs from The Graph
 
+**Main setup:** [SETUP.md](./SETUP.md) — full local stack and admin env.
+
+---
+
 ## Short answer
 
 - **The admin app does NOT use the Graph Hardhat plugin.** It only needs the **HTTP URL of a deployed subgraph** (e.g. `https://api.thegraph.com/subgraphs/name/your-org/arkenstone`). You set that in `admin/.env` as `VITE_SUBGRAPH_URL`.

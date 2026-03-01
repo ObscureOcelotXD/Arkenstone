@@ -1,5 +1,9 @@
 # The Graph — Arkenstone Staking
 
+**Main setup:** [SETUP.md](./SETUP.md) — local Graph Node, subgraph deploy, troubleshooting.
+
+---
+
 This app is ready to be indexed by The Graph (e.g. via Docker) so an admin portal can read **interest rates**, **TVL**, and history.
 
 **Admin app:** For what the admin dashboard needs from you (subgraph URL, no Hardhat plugin in the app), see [ADMIN_GRAPH_SETUP.md](./ADMIN_GRAPH_SETUP.md).

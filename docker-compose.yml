@@ -1,7 +1,7 @@
 # Local Graph Node for indexing the Hardhat chain (no Sepolia needed).
 # From repo root: docker compose up
 # Then create/deploy subgraph (see subgraph/README.md "Local Graph Node").
-version: "3"
+
 services:
   graph-node:
     image: graphprotocol/graph-node
