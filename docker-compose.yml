@@ -1,6 +1,9 @@
 # Local Graph Node for indexing the Hardhat chain (no Sepolia needed).
 # From repo root: docker compose up
 # Then create/deploy subgraph (see subgraph/README.md "Local Graph Node").
+#
+# Required: set GRAPH_POSTGRES_PASSWORD (e.g. in a .env file in this directory).
+# Used by both graph-node and postgres. No default.
 
 services:
   graph-node:
@@ -19,7 +22,7 @@ services:
     environment:
       postgres_host: postgres
       postgres_user: graph-node
-      postgres_pass: let-me-in
+      postgres_pass: ${GRAPH_POSTGRES_PASSWORD}
       postgres_db: graph-node
       ipfs: "ipfs:5001"
       ethereum: "localhost:http://host.docker.internal:8545"
@@ -39,7 +42,7 @@ services:
       - "-cshared_preload_libraries=pg_stat_statements"
     environment:
       POSTGRES_USER: graph-node
-      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_PASSWORD: ${GRAPH_POSTGRES_PASSWORD}
       POSTGRES_DB: graph-node
       PGDATA: "/data/postgres"
       # Graph Node requires C locale (see graph-node docs)

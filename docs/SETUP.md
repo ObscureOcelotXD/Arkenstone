@@ -1,6 +1,6 @@
 # Arkenstone — Setup & operations
 
-Single reference for local development: Hardhat, Docker (Graph Node), subgraph, frontend, and admin. All commands assume you are at the **project root** unless noted.
+Single reference for local development: Hardhat, Docker (Graph Node), subgraph, frontend, and admin. All commands assume you are at the **project root** unless noted. The project uses a **single `.env`** (and one `.env.example`) at the repo root; Hardhat, Docker Compose, deploy scripts, and the admin app all read from it.
 
 ---
 
@@ -17,7 +17,7 @@ Single reference for local development: Hardhat, Docker (Graph Node), subgraph, 
 ## Prerequisites
 
 - **Node 18+**
-- **Docker** (Docker Desktop or `docker compose`) for the local Graph Node.
+- **Docker** (Docker Desktop or `docker compose`) for the local Graph Node. **`GRAPH_POSTGRES_PASSWORD`** is required (no default): set it in a `.env` file in the repo root or via a secret manager. See [Changing the Postgres password locally](#changing-the-postgres-password-locally) below.
 - **Graph CLI** (for subgraph): `npm install -g @graphprotocol/graph-cli` or use `npx` in `subgraph/`.
 
 ---
@@ -78,7 +78,7 @@ When the script finishes you get:
 ## Manual start (when you need steps separately)
 
 1. **Hardhat** (terminal 1): `npx hardhat node --hostname 0.0.0.0` — leave running.
-2. **Deploy** (terminal 2): `npm run deploy:local` — updates frontend addresses and admin `.env`.
+2. **Deploy** (terminal 2): `npm run deploy:local` — updates frontend addresses and root `.env` (VITE_* for admin).
 3. **Sync subgraph address:** `node subgraph/scripts/sync-address.js`
 4. **Docker:** `docker compose up` — leave running.
 5. **Subgraph** (from `subgraph/`): `npm run codegen && npm run build:localhost && npm run create-local && npm run deploy-local` (use `--version-label v0.0.x` if you need non-interactive deploy).
@@ -94,6 +94,23 @@ The subgraph indexes **ArkenstoneStaking** on the Hardhat chain so the admin das
 - **Create/deploy** (one-time or after wiping `data/`): from `subgraph/`, run `npm run create-local` then `npm run deploy-local`.
 - **After contract or mapping changes:** from `subgraph/`, run `npm run codegen`, `npm run build:localhost`, then `npm run deploy-local` with a new version.
 
+### Changing the Postgres password locally
+
+The Graph Node stack uses **`GRAPH_POSTGRES_PASSWORD`** for both the `postgres` and `graph-node` services. There is no default; you must set it.
+
+1. **Set the password:** In the **repo root**, create a `.env` file (or edit it if it exists) and add:
+   ```bash
+   GRAPH_POSTGRES_PASSWORD=your_chosen_password
+   ```
+   Docker Compose reads `.env` from the directory that contains `docker-compose.yml` (the repo root when you run `docker compose up` from there).
+
+2. **If you already had Postgres running with a different password:** Postgres only sets the password on first init. To switch to a new password you must re-initialize the data directory:
+   - Stop the stack: `npm run stop:all` (or `docker compose down`).
+   - Remove the Postgres data: `rm -rf data/postgres` (and optionally `data/ipfs` if you want a clean IPFS state).
+   - Start again: `npm run start:all` or `docker compose up`. Postgres will init with the new `GRAPH_POSTGRES_PASSWORD`. You’ll need to run subgraph create/deploy again (e.g. `start:all` does that for you).
+
+3. **Secret manager later:** When you move to a secret manager, have it provide `GRAPH_POSTGRES_PASSWORD` in the environment (or write a `.env` from it) before running `docker compose up`; no code changes needed.
+
 ### Subgraph not seeing Hardhat changes?
 
 - **Hardhat restarts = new chain.** Each `npx hardhat node` run creates a new chain. The Graph Node keeps indexing the old one. **Fix:** Use `npm run start:all:restart` (or stop Docker, `rm -rf data`, `docker compose up`, then from `subgraph/`: `npm run create-local` and `npm run deploy-local`).
@@ -105,8 +122,8 @@ The subgraph indexes **ArkenstoneStaking** on the Hardhat chain so the admin das
 
 ## Admin app
 
-- **Run:** `cd admin && npm install && cp .env.example .env && npm run dev` — http://localhost:5174.
-- **Env:** `sync-admin-env.js` (run by `deploy:local` / `start:all`) sets `VITE_STAKING_ADDRESS`, `VITE_RPC_URL`, and (if missing) `VITE_SUBGRAPH_URL` to the local proxy URL so the dashboard can query the subgraph without CORS.
+- **Run:** From repo root, `cp .env.example .env` once (if you don’t have `.env`), fill in at least `GRAPH_POSTGRES_PASSWORD`; then `cd admin && npm install && npm run dev` — http://localhost:5174. The admin app loads `.env` from the repo root (single .env for the project).
+- **Env:** `sync-admin-env.js` (run by `deploy:local` / `start:all`) writes `VITE_STAKING_ADDRESS`, `VITE_RPC_URL`, and (if missing) `VITE_SUBGRAPH_URL` into the **root** `.env` so the admin dashboard can query the subgraph without CORS.
 
 | Variable              | Description |
 |-----------------------|-------------|
@@ -130,7 +147,7 @@ The subgraph indexes **ArkenstoneStaking** on the Hardhat chain so the admin das
 2. Sync subgraph: `CHAIN_ID=11155111 node subgraph/scripts/sync-address.js`.
 3. In `subgraph.yaml` set `network: sepolia` and optionally `source.startBlock`.
 4. From `subgraph/`: `graph codegen`, `graph build`, then `graph auth` and `graph deploy` (Studio or Hosted Service).
-5. Put the subgraph’s Query URL in `admin/.env` as `VITE_SUBGRAPH_URL`.
+5. Put the subgraph’s Query URL in the root `.env` as `VITE_SUBGRAPH_URL`.
 
 ---
 
@@ -216,7 +233,7 @@ From project root:
 npm test
 ```
 
-This runs **Hardhat contract tests** (ArkenstoneStaking, ArkenstoneToken, AssetReceiver, AssetWithdrawler, Lock) and **script unit tests** for `sync-admin-env` and `sync-address` (subgraph). Script tests use temp directories and do not modify your real `admin/.env` or `subgraph/subgraph.yaml`.
+This runs **Hardhat contract tests** (ArkenstoneStaking, ArkenstoneToken, AssetReceiver, AssetWithdrawler, Lock) and **script unit tests** for `sync-admin-env` and `sync-address` (subgraph). Script tests use temp directories and do not modify your real root `.env` or `subgraph/subgraph.yaml`.
 
 - **Contract tests** — `test/ArkenstoneStaking.test.js`, `test/ArkenstoneToken.test.js`, etc. Deploy token + staking in-process and assert deployment, ETH/ARKN staking, rewards, owner rate updates, TVL, and edge cases (non-depositor stake info, multiple depositors).
 - **Script tests** — `test/scripts/sync-admin-env.test.js`, `test/scripts/sync-address.test.js`. Test that `syncAdminEnv(root)` and `syncSubgraphAddress(subgraphDir, deploymentsPath, chainId)` write the expected env and YAML/networks.json from fixture deployment files.

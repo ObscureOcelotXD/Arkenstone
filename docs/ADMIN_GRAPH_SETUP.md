@@ -6,7 +6,7 @@
 
 ## Short answer
 
-- **The admin app does NOT use the Graph Hardhat plugin.** It only needs the **HTTP URL of a deployed subgraph** (e.g. `https://api.thegraph.com/subgraphs/name/your-org/arkenstone`). You set that in `admin/.env` as `VITE_SUBGRAPH_URL`.
+- **The admin app does NOT use the Graph Hardhat plugin.** It only needs the **HTTP URL of a deployed subgraph** (e.g. `https://api.thegraph.com/subgraphs/name/your-org/arkenstone`). You set that in the repo root `.env` as `VITE_SUBGRAPH_URL`.
 - **The Graph Hardhat plugin** (e.g. `@graphprotocol/hardhat-graph`) is optional. If you use it, it’s for **building and deploying** the subgraph from this repo (using your Hardhat deploy addresses/ABIs). The admin app still just needs the final subgraph URL.
 
 ---
@@ -30,7 +30,7 @@ The admin app is just a **client** of your subgraph. It doesn’t build or deplo
 1. Create a subgraph project (in this repo or another) that indexes **ArkenstoneStaking** (see `docs/THE_GRAPH.md` for events and suggested entities).
 2. Deploy it to [The Graph Hosted Service](https://thegraph.com/docs/en/hosted-service/) or [Subgraph Studio](https://thegraph.com/docs/en/studio/) (or self-host).
 3. Copy the **subgraph HTTP URL** (the GraphQL endpoint).
-4. In `admin/.env` set:
+4. In the repo root `.env` set:
    ```bash
    VITE_SUBGRAPH_URL=https://api.thegraph.com/subgraphs/name/<your-org>/<subgraph-name>
    ```
@@ -54,7 +54,7 @@ Steps (high level):
 1. Add the plugin and create a subgraph in this repo (e.g. `subgraph/` with `schema.graphql`, `subgraph.yaml`, mappings).
 2. Use the plugin to point the subgraph at your deployed ArkenstoneStaking address and ABI.
 3. Deploy the subgraph (via the plugin or Graph CLI) and get the **HTTP URL**.
-4. Set `VITE_SUBGRAPH_URL` in `admin/.env` as in Option A.
+4. Set `VITE_SUBGRAPH_URL` in the repo root `.env` as in Option A.
 
 The **admin app does not use the plugin**. The plugin is only for generating/deploying the subgraph. The admin app still only needs the final subgraph URL and queries that match your schema.
 
