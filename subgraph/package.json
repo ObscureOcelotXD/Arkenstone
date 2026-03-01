@@ -1,0 +1,18 @@
+{
+  "name": "arkenstone-subgraph",
+  "version": "1.0.0",
+  "description": "Subgraph for Arkenstone Staking — build here, move to own repo later",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "build:localhost": "graph build --network localhost",
+    "sync-address": "node scripts/sync-address.js",
+    "create-local": "graph create --node http://127.0.0.1:8020 arkenstone/arkenstone",
+    "deploy-local": "graph deploy --node http://127.0.0.1:8020 --ipfs http://127.0.0.1:5001 arkenstone/arkenstone --network localhost"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.76.0",
+    "@graphprotocol/graph-ts": "^0.35.0",
+    "typescript": "^5.3.0"
+  }
+}

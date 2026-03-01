@@ -1,0 +1,61 @@
+# Global protocol stats (singleton; id = "global")
+type Protocol @entity {
+  id: ID!
+  totalEthStaked: BigInt!
+  totalArknStaked: BigInt!
+  currentInterestRateBps: BigInt!
+  currentArknInterestRateBps: BigInt!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+}
+
+# One row per interest rate change (ETH or ARKN pool)
+type InterestRateChange @entity {
+  id: ID!
+  pool: String! # "eth" | "arkn"
+  oldBps: BigInt!
+  newBps: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ETH deposit (for volume / history)
+type EthDeposit @entity {
+  id: ID!
+  user: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ETH withdraw
+type EthWithdraw @entity {
+  id: ID!
+  user: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ARKN deposit
+type ArknDeposit @entity {
+  id: ID!
+  user: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ARKN withdraw
+type ArknWithdraw @entity {
+  id: ID!
+  user: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}

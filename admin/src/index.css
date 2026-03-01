@@ -1,0 +1,51 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-page:        #07070f;
+  --bg-card:        #0f0f1c;
+  --bg-card-hover:  #141428;
+  --bg-input:       #0a0a18;
+
+  --gold:           #d4a843;
+  --gold-light:     #f0c865;
+  --gold-dim:       rgba(212, 168, 67, 0.12);
+  --gold-border:    rgba(212, 168, 67, 0.28);
+
+  --text-primary:   #eeeef8;
+  --text-secondary: #7878a0;
+  --text-gold:      #d4a843;
+
+  --border:         rgba(255, 255, 255, 0.06);
+  --success-bg:     rgba(34, 197, 94, 0.12);
+  --success-text:   #4ade80;
+  --error-bg:       rgba(239, 68, 68, 0.12);
+  --error-text:     #f87171;
+
+  --radius:         16px;
+  --radius-sm:      10px;
+  --shadow:         0 4px 32px rgba(0, 0, 0, 0.5);
+  --transition:     0.2s ease;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(212, 168, 67, 0.07) 0%, transparent 70%),
+    var(--bg-page);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

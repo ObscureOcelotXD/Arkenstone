@@ -1,0 +1,39 @@
+specVersion: 1.0.0
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: ArkenstoneStaking
+    network: localhost
+    source:
+      abi: ArkenstoneStaking
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - InterestRateChange
+        - EthDeposit
+        - EthWithdraw
+        - ArknDeposit
+        - ArknWithdraw
+      abis:
+        - name: ArkenstoneStaking
+          file: ./abis/ArkenstoneStaking.json
+      eventHandlers:
+        - event: Deposited(indexed address,uint256)
+          handler: handleDeposited
+        - event: Withdrawn(indexed address,uint256)
+          handler: handleWithdrawn
+        - event: InterestRateUpdated(uint256,uint256)
+          handler: handleInterestRateUpdated
+        - event: ArknDeposited(indexed address,uint256)
+          handler: handleArknDeposited
+        - event: ArknWithdrawn(indexed address,uint256)
+          handler: handleArknWithdrawn
+        - event: ArknInterestRateUpdated(uint256,uint256)
+          handler: handleArknInterestRateUpdated
+      file: ./src/mapping.ts
