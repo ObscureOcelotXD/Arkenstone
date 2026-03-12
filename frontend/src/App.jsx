@@ -84,13 +84,26 @@ export default function App() {
     }
   }, [stakingContract, tokenContract, account]);
 
-  // Auto-refresh every 10 seconds while connected.
+  // Refresh on new blocks, throttled to at most once every 3 seconds (one fetch for latest state).
   useEffect(() => {
-    if (!account) return;
+    if (!account || !signer) return;
     refreshData();
-    const id = setInterval(refreshData, 10_000);
-    return () => clearInterval(id);
-  }, [account, refreshData]);
+    const provider = signer.provider;
+    if (!provider) return;
+    let lastFetch = 0;
+    const THROTTLE_MS = 3000;
+    const handler = () => {
+      const now = Date.now();
+      if (now - lastFetch >= THROTTLE_MS) {
+        lastFetch = now;
+        refreshData();
+      }
+    };
+    provider.on("block", handler);
+    return () => {
+      provider.off("block", handler);
+    };
+  }, [account, signer, refreshData]);
 
   // Track account or network changes in MetaMask.
   useEffect(() => {

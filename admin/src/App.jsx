@@ -2,8 +2,10 @@ import { useState, useCallback } from "react";
 import { useStakingData } from "./hooks/useStakingData.js";
 import { useSubgraphData } from "./hooks/useSubgraphData.js";
 import { useWallet } from "./hooks/useWallet.js";
+import { useBlockRefresh } from "./hooks/useBlockRefresh.js";
 import InterestRateForm from "./components/InterestRateForm.jsx";
 import { ethers } from "ethers";
+import { RPC_URL } from "./config/contracts.js";
 import "./App.css";
 
 function formatEth(wei) {
@@ -27,6 +29,10 @@ export default function App() {
   const { data: staking, loading: stakingLoading, error: stakingError, refetch: refetchStaking } = useStakingData();
   const { rateHistory, volumeOrTvl, loading: graphLoading, error: graphError, configured: graphConfigured, refetch: refetchSubgraph } = useSubgraphData();
   const { account, connect, disconnect, stakingContractWithSigner, isRightChain, isConnected, error: walletError } = useWallet();
+  const blockInfo = useBlockRefresh(RPC_URL, useCallback(() => {
+    refetchStaking();
+    refetchSubgraph();
+  }, [refetchStaking, refetchSubgraph]));
 
   const onRateUpdateSuccess = useCallback(() => {
     refetchStaking();
@@ -69,6 +75,65 @@ export default function App() {
       <main className="admin-main">
         {tab === "dashboard" && (
           <div className="dashboard">
+            <section className="dashboard-section">
+              <h2 className="dashboard-section__title">Block info</h2>
+              <p className="dashboard-section__sub">Chain state — updates on new blocks (throttled 3s)</p>
+              {blockInfo.loading ? (
+                <div className="admin-card admin-card--loading">Loading block info…</div>
+              ) : (
+                <div className="admin-cards">
+                  <div className="admin-card">
+                    <div className="admin-card__label">Block number</div>
+                    <div className="admin-card__value">
+                      {blockInfo.blockNumber != null ? blockInfo.blockNumber.toLocaleString() : "—"}
+                    </div>
+                  </div>
+                  <div className="admin-card">
+                    <div className="admin-card__label">Block timestamp</div>
+                    <div className="admin-card__value">
+                      {blockInfo.blockTimestamp != null
+                        ? new Date(Number(blockInfo.blockTimestamp) * 1000).toLocaleString()
+                        : "—"}
+                    </div>
+                  </div>
+                  <div className="admin-card">
+                    <div className="admin-card__label">Chain ID</div>
+                    <div className="admin-card__value">{blockInfo.chainId ?? "—"}</div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="dashboard-section">
+              <h2 className="dashboard-section__title">ARKN</h2>
+              <p className="dashboard-section__sub">Total supply, staked, and unclaimed rewards</p>
+              {stakingLoading ? (
+                <div className="admin-card admin-card--loading">Loading…</div>
+              ) : (
+                <div className="admin-cards">
+                  <div className="admin-card">
+                    <div className="admin-card__label">Total ARKN supply (minted)</div>
+                    <div className="admin-card__value admin-card__value--gold">
+                      {formatArkn(staking.totalArknSupply ?? 0n)} ARKN
+                    </div>
+                  </div>
+                  <div className="admin-card">
+                    <div className="admin-card__label">Total ARKN staked</div>
+                    <div className="admin-card__value admin-card__value--gold">
+                      {formatArkn(staking.totalArknStaked ?? 0n)} ARKN
+                    </div>
+                  </div>
+                  <div className="admin-card">
+                    <div className="admin-card__label">Pending (unclaimed) ARKN rewards</div>
+                    <div className="admin-card__value">—</div>
+                    <div className="admin-card__muted" style={{ marginTop: "4px", fontSize: "0.85em" }}>
+                      Not tracked on-chain (would require a contract view over all stakers).
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
             <section className="dashboard-section">
               <h2 className="dashboard-section__title">TVL (DeFi)</h2>
               <p className="dashboard-section__sub">Total value locked — from chain</p>

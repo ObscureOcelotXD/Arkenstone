@@ -15,7 +15,10 @@ export const STAKING_ABI = [
   "function totalArknStaked() view returns (uint256)",
   "function interestRateBps() view returns (uint256)",
   "function arknInterestRateBps() view returns (uint256)",
+  "function arkn() view returns (address)",
   "function setInterestRateBps(uint256 bps)",
   "function setArknInterestRateBps(uint256 bps)",
   "function owner() view returns (address)",
 ];
+
+export const TOKEN_ABI = ["function totalSupply() view returns (uint256)"];
