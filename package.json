@@ -9,6 +9,10 @@
     "deploy:sepolia": "hardhat ignition deploy ignition/modules/ArkenDeploy.js --network sepolia && CHAIN_ID=11155111 node scripts/update-frontend-addresses.js",
     "start:all": "./scripts/start-all.sh",
     "start:all:restart": "./scripts/start-all.sh --restart",
+    "start:all:infisical": "infisical run -- ./scripts/start-all.sh",
+    "start:all:restart:infisical": "infisical run -- ./scripts/start-all.sh --restart",
+    "deploy:sepolia:infisical": "infisical run -- npm run deploy:sepolia",
+    "docker:up:infisical": "infisical run -- docker compose up",
     "stop:all": "./scripts/stop-all.sh"
   },
   "keywords": [],

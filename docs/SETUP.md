@@ -1,6 +1,8 @@
 # Arkenstone — Setup & operations
 
-Single reference for local development: Hardhat, Docker (Graph Node), subgraph, frontend, and admin. All commands assume you are at the **project root** unless noted. The project uses a **single `.env`** (and one `.env.example`) at the repo root; Hardhat, Docker Compose, deploy scripts, and the admin app all read from it.
+Single reference for local development: Hardhat, Docker (Graph Node), subgraph, frontend, and admin. All commands assume you are at the **project root** unless noted.
+
+**Secrets:** This project uses [Infisical](https://infisical.com) (free tier) for secrets. You run the stack with `npm run start:all:infisical` so Infisical injects `GRAPH_POSTGRES_PASSWORD`, `VITE_*`, etc. You do **not** need a `.env` file; you can leave it empty or delete it. See [docs/INFISICAL.md](INFISICAL.md). (Optional fallback: use a root `.env` and `npm run start:all` without Infisical.)
 
 ---
 
@@ -17,40 +19,39 @@ Single reference for local development: Hardhat, Docker (Graph Node), subgraph, 
 ## Prerequisites
 
 - **Node 18+**
-- **Docker** (Docker Desktop or `docker compose`) for the local Graph Node. **`GRAPH_POSTGRES_PASSWORD`** is required (no default): set it in a `.env` file in the repo root or via a secret manager. See [Changing the Postgres password locally](#changing-the-postgres-password-locally) below.
+- **Infisical** — CLI installed (`brew install infisical/get-cli/infisical` or `npm i -g @infisical/cli`), logged in (`infisical login`), and project linked (`infisical init`). Add secrets (e.g. `GRAPH_POSTGRES_PASSWORD`, `VITE_RPC_URL`, `VITE_SUBGRAPH_URL`) in the Infisical dashboard. See [docs/INFISICAL.md](INFISICAL.md).
+- **Docker** (Docker Desktop or `docker compose`) for the local Graph Node.
 - **Graph CLI** (for subgraph): `npm install -g @graphprotocol/graph-cli` or use `npx` in `subgraph/`.
 
 ---
 
 ## Quick start
 
-From project root:
+From project root (requires [Infisical](INFISICAL.md) set up: `infisical login`, `infisical init`, and secrets added in the dashboard):
 
 ```bash
-npm run start:all
+npm run start:all:infisical
 ```
 
-This starts (in order):
+This injects secrets from Infisical and starts (in order):
 
 1. Hardhat node (`--hostname 0.0.0.0`)
 2. Waits for RPC, then runs `deploy:local`, `sync-address`, and `sync-admin-env`
-3. Docker (Graph Node, IPFS, Postgres)
+3. Docker (Graph Node, IPFS, Postgres) — uses `GRAPH_POSTGRES_PASSWORD` from Infisical
 4. Waits for Graph Node, then builds and deploys the subgraph to the local node
-5. Frontend and admin dev servers in the background
+5. Frontend and admin dev servers (admin gets `VITE_*` from Infisical)
 
-**After a reboot or when things are out of sync (e.g. subgraph not seeing Hardhat changes):**
+**After a reboot or when the subgraph isn’t connected / not seeing Hardhat changes:**
 
 ```bash
-npm run start:all:restart
+npm run start:all:restart:infisical
 ```
 
-This:
+This kills processes on 8545, 5173, 5174; runs `docker compose down` and removes `data/` so the Graph Node re-indexes the current Hardhat chain; then runs the full sequence again including subgraph deploy.
 
-- Kills processes on ports 8545, 5173, 5174
-- Runs `docker compose down` and removes the `data/` folder (so the Graph Node indexes the **current** Hardhat chain from scratch)
-- Then runs the same sequence as `start:all`, including subgraph deploy
+**Stop everything:** `npm run stop:all`
 
-**Stop everything:** From project root run `npm run stop:all` to kill Hardhat (8545), frontend (5173), admin (5174), and run `docker compose down`.
+**Without Infisical:** Use a root `.env` (copy from `.env.example` and fill in) and run `npm run start:all` or `npm run start:all:restart` instead.
 
 When the script finishes you get:
 
@@ -78,9 +79,9 @@ When the script finishes you get:
 ## Manual start (when you need steps separately)
 
 1. **Hardhat** (terminal 1): `npx hardhat node --hostname 0.0.0.0` — leave running.
-2. **Deploy** (terminal 2): `npm run deploy:local` — updates frontend addresses and root `.env` (VITE_* for admin).
+2. **Deploy** (terminal 2): `npm run deploy:local` (or `infisical run -- npm run deploy:local`) — updates frontend addresses and, if using `.env`, root `.env` (VITE_* for admin).
 3. **Sync subgraph address:** `node subgraph/scripts/sync-address.js`
-4. **Docker:** `docker compose up` — leave running.
+4. **Docker:** `infisical run -- docker compose up` (or `docker compose up` if using `.env`) — leave running.
 5. **Subgraph** (from `subgraph/`): `npm run codegen && npm run build:localhost && npm run create-local && npm run deploy-local` (use `--version-label v0.0.x` if you need non-interactive deploy).
 6. **Frontend:** `cd frontend && npm run dev`
 7. **Admin:** `cd admin && npm run dev`
@@ -94,22 +95,18 @@ The subgraph indexes **ArkenstoneStaking** on the Hardhat chain so the admin das
 - **Create/deploy** (one-time or after wiping `data/`): from `subgraph/`, run `npm run create-local` then `npm run deploy-local`.
 - **After contract or mapping changes:** from `subgraph/`, run `npm run codegen`, `npm run build:localhost`, then `npm run deploy-local` with a new version.
 
-### Changing the Postgres password locally
+### Hook up the Graph again (subgraph not connected)
 
-The Graph Node stack uses **`GRAPH_POSTGRES_PASSWORD`** for both the `postgres` and `graph-node` services. There is no default; you must set it.
+If the admin dashboard doesn’t show rate history or volume from the subgraph:
 
-1. **Set the password:** In the **repo root**, create a `.env` file (or edit it if it exists) and add:
-   ```bash
-   GRAPH_POSTGRES_PASSWORD=your_chosen_password
-   ```
-   Docker Compose reads `.env` from the directory that contains `docker-compose.yml` (the repo root when you run `docker compose up` from there).
+1. **Run the full stack with Infisical** so Docker and the admin app get secrets: `npm run start:all:infisical`. Do not run `docker compose up` or `npm run start:all` without Infisical unless you have a root `.env` with `GRAPH_POSTGRES_PASSWORD` and `VITE_SUBGRAPH_URL`.
+2. **If Hardhat was restarted** (new chain), the Graph Node is still indexing the old chain. Run `npm run start:all:restart:infisical` to wipe `data/`, bring everything up again, and redeploy the subgraph so it indexes the current chain.
+3. **Ensure `VITE_SUBGRAPH_URL` is set in Infisical** (e.g. `http://localhost:5174/subgraphs/name/arkenstone/arkenstone` for the local proxy). The admin app needs this to query the subgraph. If you use `.env` instead, set it there.
+4. **Check Graph Node:** `docker compose logs -f graph-node` for indexing or RPC errors.
 
-2. **If you already had Postgres running with a different password:** Postgres only sets the password on first init. To switch to a new password you must re-initialize the data directory:
-   - Stop the stack: `npm run stop:all` (or `docker compose down`).
-   - Remove the Postgres data: `rm -rf data/postgres` (and optionally `data/ipfs` if you want a clean IPFS state).
-   - Start again: `npm run start:all` or `docker compose up`. Postgres will init with the new `GRAPH_POSTGRES_PASSWORD`. You’ll need to run subgraph create/deploy again (e.g. `start:all` does that for you).
+### Changing the Postgres password
 
-3. **Secret manager later:** When you move to a secret manager, have it provide `GRAPH_POSTGRES_PASSWORD` in the environment (or write a `.env` from it) before running `docker compose up`; no code changes needed.
+The Graph Node stack uses **`GRAPH_POSTGRES_PASSWORD`** for both the `postgres` and `graph-node` services. With Infisical, set or change it in the Infisical dashboard for your environment. If you use a root `.env`, set `GRAPH_POSTGRES_PASSWORD` there. If you change the password and Postgres was already initialized, stop the stack (`npm run stop:all`), remove `data/postgres` (and optionally `data/ipfs`), then start again with `npm run start:all:infisical` (or `npm run start:all` with `.env`); subgraph create/deploy will run as part of start.
 
 ### Subgraph not seeing Hardhat changes?
 
@@ -122,8 +119,8 @@ The Graph Node stack uses **`GRAPH_POSTGRES_PASSWORD`** for both the `postgres` 
 
 ## Admin app
 
-- **Run:** From repo root, `cp .env.example .env` once (if you don’t have `.env`), fill in at least `GRAPH_POSTGRES_PASSWORD`; then `cd admin && npm install && npm run dev` — http://localhost:5174. The admin app loads `.env` from the repo root (single .env for the project).
-- **Env:** `sync-admin-env.js` (run by `deploy:local` / `start:all`) writes `VITE_STAKING_ADDRESS`, `VITE_RPC_URL`, and (if missing) `VITE_SUBGRAPH_URL` into the **root** `.env` so the admin dashboard can query the subgraph without CORS.
+- **Run:** With Infisical (recommended): `npm run start:all:infisical` starts the full stack and the admin app gets `VITE_*` from Infisical. To run only the admin app: `infisical run -- sh -c 'cd admin && npm run dev'` → http://localhost:5174. Without Infisical: ensure root `.env` exists and has at least `GRAPH_POSTGRES_PASSWORD` and optionally `VITE_SUBGRAPH_URL`; then `cd admin && npm run dev`. The admin app loads env from the repo root (Infisical injects when you use `infisical run`, or Vite reads `.env` from root).
+- **Env:** `sync-admin-env.js` (run by `deploy:local` / `start:all`) can write `VITE_STAKING_ADDRESS`, `VITE_RPC_URL`, and `VITE_SUBGRAPH_URL` into the root `.env` if you use one; with Infisical, set those in the dashboard so the admin can query the subgraph.
 
 | Variable              | Description |
 |-----------------------|-------------|
@@ -143,11 +140,11 @@ The Graph Node stack uses **`GRAPH_POSTGRES_PASSWORD`** for both the `postgres` 
 
 ### Deploy to Sepolia / Hosted Service
 
-1. Deploy contracts: `npm run deploy:sepolia` (set `.env` with `SEPOLIA_RPC_URL`, `PRIVATE_KEY`).
+1. Deploy contracts: `npm run deploy:sepolia:infisical` (or set `SEPOLIA_RPC_URL` and `PRIVATE_KEY` in Infisical; or use root `.env` and `npm run deploy:sepolia`).
 2. Sync subgraph: `CHAIN_ID=11155111 node subgraph/scripts/sync-address.js`.
 3. In `subgraph.yaml` set `network: sepolia` and optionally `source.startBlock`.
 4. From `subgraph/`: `graph codegen`, `graph build`, then `graph auth` and `graph deploy` (Studio or Hosted Service).
-5. Put the subgraph’s Query URL in the root `.env` as `VITE_SUBGRAPH_URL`.
+5. Put the subgraph’s Query URL in Infisical as `VITE_SUBGRAPH_URL` (or in root `.env` if not using Infisical).
 
 ---
 
@@ -219,9 +216,9 @@ The admin app is a **client** of the subgraph: it only needs the subgraph **HTTP
 
 ## Troubleshooting
 
-- **Admin shows "could not decode result data" or 0 TVL:** Admin is using an old staking address. Run `node scripts/sync-admin-env.js` (or `start:all`, which runs it), then refresh the admin page.
-- **Admin "NetworkError" when fetching subgraph:** Ensure Graph Node is running and subgraph is deployed; or leave `VITE_SUBGRAPH_URL` unset if you are not using the subgraph.
-- **Subgraph not updating:** Use `start:all:restart` so the Graph Node wipes `data/` and re-indexes the current Hardhat chain; or manually `docker compose down`, `rm -rf data`, `docker compose up`, then from `subgraph/` run `create-local` and `deploy-local`.
+- **Admin shows "could not decode result data" or 0 TVL:** Admin is using an old staking address. Run `node scripts/sync-admin-env.js` (or `start:all:infisical` / `start:all`, which runs it), then refresh the admin page.
+- **Admin "NetworkError" when fetching subgraph / Graph not connected:** See [Hook up the Graph again](#hook-up-the-graph-again-subgraph-not-connected) above. Use `npm run start:all:infisical` so Docker gets `GRAPH_POSTGRES_PASSWORD` and admin gets `VITE_SUBGRAPH_URL`; if Hardhat was restarted, use `npm run start:all:restart:infisical`.
+- **Subgraph not updating:** Use `npm run start:all:restart:infisical` (or `start:all:restart` with `.env`) so the Graph Node wipes `data/` and re-indexes the current Hardhat chain.
 
 ---
 
@@ -244,12 +241,13 @@ This runs **Hardhat contract tests** (ArkenstoneStaking, ArkenstoneToken, AssetR
 
 | Goal                         | Command |
 |-----------------------------|--------|
-| Start full stack             | `npm run start:all` |
-| Full restart (ports + Docker + data) | `npm run start:all:restart` |
+| Start full stack (Infisical) | `npm run start:all:infisical` |
+| Full restart / rehook Graph  | `npm run start:all:restart:infisical` |
 | Stop full stack              | `npm run stop:all` |
 | Deploy contracts only        | `npm run deploy:local` |
+| Deploy to Sepolia (Infisical)| `npm run deploy:sepolia:infisical` |
 | Sync subgraph address       | `node subgraph/scripts/sync-address.js` |
-| Sync admin .env             | `node scripts/sync-admin-env.js` |
+| Sync root .env (if using)    | `node scripts/sync-admin-env.js` |
 | Subgraph build + deploy      | `cd subgraph && npm run codegen && npm run build:localhost && npm run deploy-local` |
 | Stop Docker                  | `docker compose down` |
 | Graph Node logs              | `docker compose logs -f graph-node` |
